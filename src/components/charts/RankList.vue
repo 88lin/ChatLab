@@ -47,11 +47,11 @@ function getBarColor(index: number): string {
     'from-amber-400 to-orange-500',
     'from-gray-300 to-gray-400',
     'from-amber-600 to-amber-700',
-    'from-indigo-400 to-purple-500',
-    'from-pink-400 to-rose-500',
+    'from-pink-400 to-pink-600',
+    'from-pink-300 to-rose-500',
     'from-cyan-400 to-blue-500',
     'from-green-400 to-emerald-500',
-    'from-violet-400 to-purple-500',
+    'from-rose-400 to-pink-500',
   ]
   return colors[index % colors.length]
 }
@@ -75,7 +75,7 @@ function getBarColor(index: number): string {
       <!-- 头像占位 -->
       <div
         v-if="showAvatar"
-        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-indigo-100 to-purple-100 text-sm font-medium text-indigo-600 dark:from-indigo-900/30 dark:to-purple-900/30 dark:text-indigo-400"
+        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-pink-100 to-rose-100 text-sm font-medium text-pink-600 dark:from-pink-900/30 dark:to-rose-900/30 dark:text-pink-400"
       >
         {{ member.name.slice(0, 1) }}
       </div>

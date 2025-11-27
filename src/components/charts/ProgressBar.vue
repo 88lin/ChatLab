@@ -8,7 +8,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  color: 'from-indigo-500 to-purple-500',
+  color: 'from-pink-400 to-pink-600',
   height: 8,
   showLabel: false,
   animated: true,

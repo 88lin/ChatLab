@@ -95,7 +95,7 @@ function getRankBadge(index: number): string {
 <template>
   <div class="space-y-6">
     <!-- 群聊身份卡 -->
-    <div class="rounded-2xl bg-linear-to-br from-indigo-500 via-purple-500 to-pink-500 p-6 text-white shadow-lg">
+    <div class="rounded-2xl bg-linear-to-br from-pink-400 via-pink-500 to-pink-600 p-6 text-white shadow-lg">
       <div class="flex items-start justify-between">
         <div>
           <h2 class="text-2xl font-bold">{{ session.name }}</h2>
@@ -211,7 +211,7 @@ function getRankBadge(index: number): string {
                 <span class="font-medium text-gray-900 dark:text-white">{{ member.name }}</span>
                 <span class="text-sm text-gray-500">{{ member.messageCount }}</span>
               </div>
-              <ProgressBar :percentage="member.percentage" color="from-indigo-500 to-purple-500" />
+              <ProgressBar :percentage="member.percentage" color="from-pink-400 to-pink-600" />
             </div>
           </div>
         </div>

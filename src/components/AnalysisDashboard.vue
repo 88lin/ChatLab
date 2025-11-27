@@ -148,7 +148,7 @@ onMounted(loadData)
     <!-- Loading State -->
     <div v-if="isLoading && !session" class="flex h-full items-center justify-center">
       <div class="text-center">
-        <UIcon name="i-heroicons-arrow-path" class="h-8 w-8 animate-spin text-indigo-500" />
+        <UIcon name="i-heroicons-arrow-path" class="h-8 w-8 animate-spin text-pink-500" />
         <p class="mt-2 text-sm text-gray-500">加载分析数据...</p>
       </div>
     </div>
@@ -161,7 +161,7 @@ onMounted(loadData)
           <!-- Session Info -->
           <div class="flex items-center gap-3">
             <div
-              class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600"
+              class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-pink-400 to-pink-600"
             >
               <UIcon name="i-heroicons-chat-bubble-left-right" class="h-5 w-5 text-white" />
             </div>
@@ -188,14 +188,14 @@ onMounted(loadData)
         </div>
 
         <!-- Tabs -->
-        <div class="mt-4 flex gap-1">
+        <div class="mt-4 flex items-center gap-1">
           <button
             v-for="tab in tabs"
             :key="tab.id"
             class="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all"
             :class="[
               activeTab === tab.id
-                ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
+                ? 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300'
                 : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800',
             ]"
             @click="activeTab = tab.id"
@@ -203,7 +203,8 @@ onMounted(loadData)
             <UIcon :name="tab.icon" class="h-4 w-4" />
             {{ tab.label }}
           </button>
-          <UITabs v-model="selectedYear" :items="yearOptions" size="sm" />
+          <!-- 年份选择器靠右 -->
+          <UITabs v-model="selectedYear" :items="yearOptions" size="sm" class="ml-auto" />
         </div>
       </div>
 
@@ -215,7 +216,7 @@ onMounted(loadData)
           class="absolute inset-0 z-10 flex items-center justify-center bg-gray-50/80 dark:bg-gray-950/80"
         >
           <div class="text-center">
-            <UIcon name="i-heroicons-arrow-path" class="h-6 w-6 animate-spin text-indigo-500" />
+            <UIcon name="i-heroicons-arrow-path" class="h-6 w-6 animate-spin text-pink-500" />
             <p class="mt-2 text-sm text-gray-500">更新数据...</p>
           </div>
         </div>

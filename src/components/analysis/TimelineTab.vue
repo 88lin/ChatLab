@@ -105,13 +105,13 @@ const avgDailyMessages = computed(() => {
     <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <p class="text-xs font-medium text-gray-500 dark:text-gray-400">最活跃时段</p>
-        <p class="mt-1 text-2xl font-bold text-indigo-600 dark:text-indigo-400">{{ peakHour?.hour || 0 }}:00</p>
+        <p class="mt-1 text-2xl font-bold text-pink-600 dark:text-pink-400">{{ peakHour?.hour || 0 }}:00</p>
         <p class="mt-1 text-xs text-gray-400">{{ peakHour?.messageCount || 0 }} 条消息</p>
       </div>
 
       <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <p class="text-xs font-medium text-gray-500 dark:text-gray-400">最活跃日期</p>
-        <p class="mt-1 text-2xl font-bold text-purple-600 dark:text-purple-400">
+        <p class="mt-1 text-2xl font-bold text-pink-600 dark:text-pink-400">
           {{ peakDay ? dayjs(peakDay.date).format('MM/DD') : '-' }}
         </p>
         <p class="mt-1 text-xs text-gray-400">{{ peakDay?.messageCount || 0 }} 条消息</p>
@@ -153,28 +153,28 @@ const avgDailyMessages = computed(() => {
           <div class="text-xs text-gray-500 dark:text-gray-400">凌晨 0-6点</div>
           <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ lateNightRatio }}%</div>
           <div class="mx-auto mt-2 h-1 w-full max-w-16 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-            <div class="h-full rounded-full bg-indigo-300 transition-all" :style="{ width: `${lateNightRatio}%` }" />
+            <div class="h-full rounded-full bg-pink-300 transition-all" :style="{ width: `${lateNightRatio}%` }" />
           </div>
         </div>
         <div class="text-center">
           <div class="text-xs text-gray-500 dark:text-gray-400">上午 6-12点</div>
           <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ morningRatio }}%</div>
           <div class="mx-auto mt-2 h-1 w-full max-w-16 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-            <div class="h-full rounded-full bg-indigo-400 transition-all" :style="{ width: `${morningRatio}%` }" />
+            <div class="h-full rounded-full bg-pink-400 transition-all" :style="{ width: `${morningRatio}%` }" />
           </div>
         </div>
         <div class="text-center">
           <div class="text-xs text-gray-500 dark:text-gray-400">下午 12-18点</div>
           <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ afternoonRatio }}%</div>
           <div class="mx-auto mt-2 h-1 w-full max-w-16 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-            <div class="h-full rounded-full bg-indigo-500 transition-all" :style="{ width: `${afternoonRatio}%` }" />
+            <div class="h-full rounded-full bg-pink-500 transition-all" :style="{ width: `${afternoonRatio}%` }" />
           </div>
         </div>
         <div class="text-center">
           <div class="text-xs text-gray-500 dark:text-gray-400">晚上 18-24点</div>
           <div class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ eveningRatio }}%</div>
           <div class="mx-auto mt-2 h-1 w-full max-w-16 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
-            <div class="h-full rounded-full bg-indigo-600 transition-all" :style="{ width: `${eveningRatio}%` }" />
+            <div class="h-full rounded-full bg-pink-600 transition-all" :style="{ width: `${eveningRatio}%` }" />
           </div>
         </div>
       </div>

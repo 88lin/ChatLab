@@ -55,6 +55,7 @@ function confirmDelete(id: string, event: Event) {
 }
 
 async function handleDelete(id: string) {
+  console.log(2333)
   await chatStore.deleteSession(id)
   deleteConfirmId.value = null
 }
@@ -152,8 +153,7 @@ function cancelDelete() {
                 <div class="p-3">
                   <p class="mb-3 text-sm">确定删除此分析记录？</p>
                   <div class="flex justify-end gap-2">
-                    <UButton size="xs" color="gray" variant="ghost" @click="cancelDelete">取消</UButton>
-                    <UButton size="xs" color="red" @click="handleDelete(session.id)">删除</UButton>
+                    <UButton size="xs" color="red" @click="handleDelete(session.id)">确定删除</UButton>
                   </div>
                 </div>
               </template>

@@ -14,7 +14,7 @@ const { currentSessionId, isInitialized } = storeToRefs(chatStore)
     <template v-if="!isInitialized">
       <div class="flex h-full w-full items-center justify-center">
         <div class="text-center">
-          <UIcon name="i-heroicons-arrow-path" class="h-8 w-8 animate-spin text-indigo-500" />
+          <UIcon name="i-heroicons-arrow-path" class="h-8 w-8 animate-spin text-pink-500" />
           <p class="mt-2 text-sm text-gray-500">加载中...</p>
         </div>
       </div>

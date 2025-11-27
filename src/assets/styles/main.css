@@ -1,8 +1,17 @@
-@import "tailwindcss";
-@import "@nuxt/ui";
+@import 'tailwindcss';
+@import '@nuxt/ui';
 
-/* 配置主题颜色 */
-:root {
-  --ui-primary: var(--color-green-500);
-  --ui-neutral: var(--color-slate-500);
+/* 自定义主题颜色 - 使用 @theme static 定义色板 */
+@theme static {
+  --color-pink-50: #fff1f2;
+  --color-pink-100: #fee5e8;
+  --color-pink-200: #fccfd5;
+  --color-pink-300: #faa7b4;
+  --color-pink-400: #f7758c;
+  --color-pink-500: #ee4567;
+  --color-pink-600: #de335e;
+  --color-pink-700: #b81844;
+  --color-pink-800: #a01d42;
+  --color-pink-900: #84173b;
+  --color-pink-950: #4a071c;
 }

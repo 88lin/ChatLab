@@ -122,18 +122,18 @@ function getProgressText(): string {
       <!-- Hero Section -->
       <div class="mb-12 text-center">
         <div
-          class="mb-6 inline-flex items-center justify-center rounded-3xl bg-white p-4 shadow-lg shadow-purple-100 ring-1 ring-gray-100 dark:bg-gray-900 dark:shadow-purple-900/20 dark:ring-gray-800"
+          class="mb-6 inline-flex items-center justify-center rounded-3xl bg-white p-4 shadow-lg shadow-pink-100 ring-1 ring-gray-100 dark:bg-gray-900 dark:shadow-pink-900/20 dark:ring-gray-800"
           :class="[isImporting ? '' : 'animate-bounce']"
         >
-          <UIcon v-if="!isImporting" name="i-heroicons-sparkles" class="h-8 w-8 text-purple-500" />
-          <UIcon v-else name="i-heroicons-arrow-path" class="h-8 w-8 animate-spin text-purple-500" />
+          <UIcon v-if="!isImporting" name="i-heroicons-sparkles" class="h-8 w-8 text-pink-500" />
+          <UIcon v-else name="i-heroicons-arrow-path" class="h-8 w-8 animate-spin text-pink-500" />
         </div>
         <h1
-          class="mb-4 bg-linear-to-r from-purple-600 via-pink-500 to-orange-400 bg-clip-text text-5xl font-black tracking-tight text-transparent sm:text-6xl"
+          class="mb-4 bg-linear-to-r from-pink-600 via-pink-500 to-rose-400 bg-clip-text text-5xl font-black tracking-tight text-transparent sm:text-6xl"
         >
           ChatLab
         </h1>
-        <p class="text-lg font-medium text-gray-500 dark:text-gray-400">获取你的聊天记录分析报告</p>
+        <p class="text-lg font-medium text-gray-500 dark:text-gray-400">你的AI聊天分析实验室</p>
       </div>
 
       <!-- Feature Cards -->
@@ -141,7 +141,7 @@ function getProgressText(): string {
         <div
           v-for="feature in features"
           :key="feature.title"
-          class="group relative transform cursor-default rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-purple-500/10 dark:border-gray-800 dark:bg-gray-900"
+          class="group relative transform cursor-default rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-pink-500/10 dark:border-gray-800 dark:bg-gray-900"
           :style="{ animationDelay: feature.delay }"
         >
           <div class="mb-4 text-4xl transition-transform duration-300 group-hover:scale-110">
@@ -156,11 +156,11 @@ function getProgressText(): string {
       <div class="flex flex-col items-center space-y-6">
         <!-- Import Drop Zone -->
         <div
-          class="group relative flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-purple-300 bg-white px-12 py-12 transition-all duration-300 hover:border-purple-400 hover:bg-purple-50/50 focus:outline-none focus:ring-4 focus:ring-purple-500/20 dark:border-purple-700 dark:bg-gray-900 dark:hover:border-purple-500 dark:hover:bg-purple-900/10"
+          class="group relative flex w-full max-w-2xl cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-pink-300 bg-white px-12 py-12 transition-all duration-300 hover:border-pink-400 hover:bg-pink-50/50 focus:outline-none focus:ring-4 focus:ring-pink-500/20 dark:border-pink-700 dark:bg-gray-900 dark:hover:border-pink-500 dark:hover:bg-pink-900/10"
           :class="{
-            'border-purple-500 bg-purple-50 dark:border-purple-400 dark:bg-purple-900/20': isDragOver && !isImporting,
+            'border-pink-500 bg-pink-50 dark:border-pink-400 dark:bg-pink-900/20': isDragOver && !isImporting,
             'cursor-not-allowed opacity-70': isImporting,
-            'hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10': !isImporting,
+            'hover:scale-[1.02] hover:shadow-xl hover:shadow-pink-500/10': !isImporting,
           }"
           @click="!isImporting && handleImport()"
           @dragover="handleDragOver"
@@ -169,19 +169,15 @@ function getProgressText(): string {
         >
           <!-- Icon -->
           <div
-            class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-purple-100 to-pink-100 transition-transform duration-300 dark:from-purple-900/30 dark:to-pink-900/30"
+            class="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-linear-to-br from-pink-100 to-rose-100 transition-transform duration-300 dark:from-pink-900/30 dark:to-rose-900/30"
             :class="{ 'scale-110': isDragOver && !isImporting, 'animate-pulse': isImporting }"
           >
             <UIcon
               v-if="!isImporting"
               name="i-heroicons-arrow-up-tray"
-              class="h-8 w-8 text-purple-600 transition-transform group-hover:-translate-y-1 dark:text-purple-400"
+              class="h-8 w-8 text-pink-600 transition-transform group-hover:-translate-y-1 dark:text-pink-400"
             />
-            <UIcon
-              v-else
-              name="i-heroicons-arrow-path"
-              class="h-8 w-8 animate-spin text-purple-600 dark:text-purple-400"
-            />
+            <UIcon v-else name="i-heroicons-arrow-path" class="h-8 w-8 animate-spin text-pink-600 dark:text-pink-400" />
           </div>
 
           <!-- Text -->
@@ -190,7 +186,7 @@ function getProgressText(): string {
               <!-- 导入中显示进度 -->
               <p class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">{{ getProgressText() }}</p>
               <div class="mx-auto w-full max-w-md">
-                <UProgress :value="importProgress.progress" size="md" color="purple" />
+                <UProgress :value="importProgress.progress" size="md" color="pink" />
               </div>
               <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">
                 {{ importProgress.message }}
