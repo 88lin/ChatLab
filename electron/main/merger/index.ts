@@ -84,8 +84,66 @@ function getMessageKey(msg: ParsedMessage): string {
 }
 
 /**
- * 检测合并冲突
+ * 检测合并冲突（使用缓存的解析结果）
  * 规则：时间戳 + 用户名 + 字符长度，当两项相同但另一项不同时报告冲突
+ */
+export async function checkConflictsWithCache(
+  filePaths: string[],
+  cache: Map<string, ParseResult>
+): Promise<ConflictCheckResult> {
+  const allMessages: Array<{ msg: ParsedMessage; source: string }> = []
+  const conflicts: MergeConflict[] = []
+
+  console.log('[Merger] checkConflictsWithCache: 开始检测冲突')
+  console.log(
+    '[Merger] 文件列表:',
+    filePaths.map((p) => path.basename(p))
+  )
+  console.log(
+    '[Merger] 缓存状态:',
+    filePaths.map((p) => `${path.basename(p)}: ${cache.has(p) ? '已缓存' : '未缓存'}`)
+  )
+
+  // 解析所有文件（优先使用缓存）
+  const parseResults: Array<{ result: ParseResult; source: string }> = []
+  for (const filePath of filePaths) {
+    let result: ParseResult
+    if (cache.has(filePath)) {
+      result = cache.get(filePath)!
+      console.log(`[Merger] 使用缓存: ${path.basename(filePath)}`)
+    } else {
+      // 回退到文件解析（兼容性）
+      console.log(`[Merger] 缓存未命中，重新解析: ${path.basename(filePath)}`)
+      result = await parseFileSync(filePath)
+    }
+    parseResults.push({ result, source: path.basename(filePath) })
+  }
+
+  // 检查格式一致性
+  const formats = parseResults.map((p) => p.result.meta.platform)
+  const uniqueFormats = [...new Set(formats)]
+  if (uniqueFormats.length > 1) {
+    throw new Error(
+      `不支持合并不同格式的聊天记录。\n检测到的格式：${uniqueFormats.join('、')}\n请确保所有文件使用相同的导出工具和格式。`
+    )
+  }
+  console.log('[Merger] 格式检查通过:', uniqueFormats[0])
+
+  // 收集所有消息
+  for (const { result, source } of parseResults) {
+    console.log(`[Merger] 处理 ${source}: ${result.messages.length} 条消息`)
+    for (const msg of result.messages) {
+      allMessages.push({ msg, source })
+    }
+  }
+  console.log(`[Merger] 总消息数: ${allMessages.length}`)
+
+  return detectConflictsInMessages(allMessages, conflicts)
+}
+
+/**
+ * 检测合并冲突（原版，直接读取文件）
+ * @deprecated 使用 checkConflictsWithCache 替代
  */
 export async function checkConflicts(filePaths: string[]): Promise<ConflictCheckResult> {
   const allMessages: Array<{ msg: ParsedMessage; source: string }> = []
@@ -128,6 +186,16 @@ export async function checkConflicts(filePaths: string[]): Promise<ConflictCheck
   }
   console.log(`[Merger] 总消息数: ${allMessages.length}`)
 
+  return detectConflictsInMessages(allMessages, conflicts)
+}
+
+/**
+ * 内部函数：检测消息中的冲突
+ */
+function detectConflictsInMessages(
+  allMessages: Array<{ msg: ParsedMessage; source: string }>,
+  conflicts: MergeConflict[]
+): ConflictCheckResult {
   // 按时间戳分组检测冲突
   const timeGroups = new Map<number, Array<{ msg: ParsedMessage; source: string }>>()
   for (const item of allMessages) {
@@ -240,7 +308,45 @@ export async function checkConflicts(filePaths: string[]): Promise<ConflictCheck
 }
 
 /**
- * 合并多个聊天记录文件
+ * 合并多个聊天记录文件（使用缓存的解析结果）
+ */
+export async function mergeFilesWithCache(params: MergeParams, cache: Map<string, ParseResult>): Promise<MergeResult> {
+  try {
+    const { filePaths, outputName, outputDir, conflictResolutions, andAnalyze } = params
+
+    console.log('[Merger] mergeFilesWithCache: 开始合并')
+    console.log(
+      '[Merger] 缓存状态:',
+      filePaths.map((p) => `${path.basename(p)}: ${cache.has(p) ? '已缓存' : '未缓存'}`)
+    )
+
+    // 解析所有文件（优先使用缓存）
+    const parseResults: Array<{ result: ParseResult; source: string }> = []
+    for (const filePath of filePaths) {
+      let result: ParseResult
+      if (cache.has(filePath)) {
+        result = cache.get(filePath)!
+        console.log(`[Merger] 使用缓存: ${path.basename(filePath)}`)
+      } else {
+        // 回退到文件解析（兼容性）
+        console.log(`[Merger] 缓存未命中，重新解析: ${path.basename(filePath)}`)
+        result = await parseFileSync(filePath)
+      }
+      parseResults.push({ result, source: path.basename(filePath) })
+    }
+
+    return executeMerge(parseResults, outputName, outputDir, conflictResolutions, andAnalyze)
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : '合并失败',
+    }
+  }
+}
+
+/**
+ * 合并多个聊天记录文件（原版，直接读取文件）
+ * @deprecated 使用 mergeFilesWithCache 替代
  */
 export async function mergeFiles(params: MergeParams): Promise<MergeResult> {
   try {
@@ -253,6 +359,26 @@ export async function mergeFiles(params: MergeParams): Promise<MergeResult> {
       parseResults.push({ result, source: path.basename(filePath) })
     }
 
+    return executeMerge(parseResults, outputName, outputDir, conflictResolutions, andAnalyze)
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : '合并失败',
+    }
+  }
+}
+
+/**
+ * 内部函数：执行合并逻辑
+ */
+function executeMerge(
+  parseResults: Array<{ result: ParseResult; source: string }>,
+  outputName: string,
+  outputDir: string | undefined,
+  conflictResolutions: ConflictResolution[],
+  andAnalyze: boolean
+): MergeResult {
+  try {
     // 合并成员
     const memberMap = new Map<string, ChatLabMember>()
     for (const { result } of parseResults) {

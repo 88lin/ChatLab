@@ -77,6 +77,7 @@ interface MergeApi {
   parseFileInfo: (filePath: string) => Promise<FileParseInfo>
   checkConflicts: (filePaths: string[]) => Promise<ConflictCheckResult>
   mergeFiles: (params: MergeParams) => Promise<MergeResult>
+  clearCache: (filePath?: string) => Promise<boolean>
   onParseProgress: (callback: (data: { filePath: string; progress: ImportProgress }) => void) => () => void
 }
 

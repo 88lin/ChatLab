@@ -290,6 +290,7 @@ const chatApi = {
 const mergeApi = {
   /**
    * 解析文件获取基本信息（用于合并预览）
+   * 解析后结果会被缓存，后续合并时无需再次读取原始文件
    */
   parseFileInfo: (filePath: string): Promise<FileParseInfo> => {
     return ipcRenderer.invoke('merge:parseFileInfo', filePath)
@@ -307,6 +308,14 @@ const mergeApi = {
    */
   mergeFiles: (params: MergeParams): Promise<MergeResult> => {
     return ipcRenderer.invoke('merge:mergeFiles', params)
+  },
+
+  /**
+   * 清理解析缓存
+   * @param filePath 可选，指定文件路径则清理该文件的缓存，否则清理所有缓存
+   */
+  clearCache: (filePath?: string): Promise<boolean> => {
+    return ipcRenderer.invoke('merge:clearCache', filePath)
   },
 
   /**

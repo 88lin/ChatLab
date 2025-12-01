@@ -159,6 +159,11 @@ async function handleClickSelect() {
 
 // 移除文件
 function removeFile(id: string) {
+  const file = files.value.find((f) => f.id === id)
+  if (file) {
+    // 清理该文件的解析缓存
+    window.mergeApi.clearCache(file.path)
+  }
   files.value = files.value.filter((f) => f.id !== id)
 }
 
@@ -265,6 +270,10 @@ async function openOutputFolder() {
 
 // 重置状态
 function reset() {
+  // 清理所有文件的解析缓存
+  for (const file of files.value) {
+    window.mergeApi.clearCache(file.path)
+  }
   files.value = []
   conflicts.value = []
   outputName.value = ''

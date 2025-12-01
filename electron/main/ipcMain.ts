@@ -8,12 +8,32 @@ import * as databaseCore from './database/core'
 import * as worker from './worker'
 // 导入解析器模块
 import * as parser from './parser'
-import { detectFormat, type ParseProgress } from './parser'
+import { detectFormat, type ParseProgress, type ParseResult } from './parser'
 // 导入合并模块
 import * as merger from './merger'
 import type { MergeParams } from '../../src/types/chat'
 
 console.log('[IpcMain] Database, Worker and Parser modules imported')
+
+// ==================== 解析结果缓存 ====================
+// 用于合并功能：缓存文件的完整解析结果，避免重复解析
+// 这样用户删除本地文件后仍然可以进行合并
+const parseResultCache = new Map<string, ParseResult>()
+
+/**
+ * 清理指定文件的缓存
+ */
+function clearParseCache(filePath: string): void {
+  parseResultCache.delete(filePath)
+}
+
+/**
+ * 清理所有缓存
+ */
+function clearAllParseCache(): void {
+  parseResultCache.clear()
+  console.log('[IpcMain] 已清理所有解析缓存')
+}
 
 const mainIpcMain = (win: BrowserWindow) => {
   console.log('[IpcMain] Registering IPC handlers...')
@@ -597,18 +617,35 @@ const mainIpcMain = (win: BrowserWindow) => {
 
   /**
    * 解析文件获取基本信息（用于合并预览）
-   * 使用流式解析，支持大文件
+   * 使用流式解析获取进度，同时缓存完整解析结果
    */
   ipcMain.handle('merge:parseFileInfo', async (_, filePath: string) => {
     try {
-      // 使用流式解析，避免大文件 OOM
-      return await worker.streamParseFileInfo(filePath, (progress: ParseProgress) => {
+      // 使用流式解析，避免大文件 OOM，同时获取完整解析结果
+      const result = await worker.streamParseFileInfo(filePath, (progress: ParseProgress) => {
         // 可选：发送进度到渲染进程
         win.webContents.send('merge:parseProgress', {
           filePath,
           progress,
         })
       })
+
+      // 缓存完整解析结果（用于后续合并）
+      // 这样即使用户删除本地文件，也能继续合并
+      if (result.parseResult) {
+        parseResultCache.set(filePath, result.parseResult)
+        console.log(`[IpcMain] 已缓存解析结果: ${filePath}, 消息数: ${result.parseResult.messages.length}`)
+      }
+
+      // 返回基本信息（不包含完整解析结果，减少 IPC 传输）
+      return {
+        name: result.name,
+        format: result.format,
+        platform: result.platform,
+        messageCount: result.messageCount,
+        memberCount: result.memberCount,
+        fileSize: result.fileSize,
+      }
     } catch (error) {
       console.error('解析文件信息失败：', error)
       throw error
@@ -616,11 +653,11 @@ const mainIpcMain = (win: BrowserWindow) => {
   })
 
   /**
-   * 检测合并冲突
+   * 检测合并冲突（使用缓存的解析结果）
    */
   ipcMain.handle('merge:checkConflicts', async (_, filePaths: string[]) => {
     try {
-      return merger.checkConflicts(filePaths)
+      return merger.checkConflictsWithCache(filePaths, parseResultCache)
     } catch (error) {
       console.error('检测冲突失败：', error)
       throw error
@@ -628,15 +665,34 @@ const mainIpcMain = (win: BrowserWindow) => {
   })
 
   /**
-   * 执行合并
+   * 执行合并（使用缓存的解析结果）
    */
   ipcMain.handle('merge:mergeFiles', async (_, params: MergeParams) => {
     try {
-      return merger.mergeFiles(params)
+      const result = await merger.mergeFilesWithCache(params, parseResultCache)
+      // 合并完成后清理缓存
+      if (result.success) {
+        for (const filePath of params.filePaths) {
+          clearParseCache(filePath)
+        }
+      }
+      return result
     } catch (error) {
       console.error('合并失败：', error)
       return { success: false, error: String(error) }
     }
+  })
+
+  /**
+   * 清理合并缓存（用于用户移除文件时）
+   */
+  ipcMain.handle('merge:clearCache', async (_, filePath?: string) => {
+    if (filePath) {
+      clearParseCache(filePath)
+    } else {
+      clearAllParseCache()
+    }
+    return true
   })
 
   /**

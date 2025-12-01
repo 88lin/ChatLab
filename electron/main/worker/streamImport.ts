@@ -307,21 +307,28 @@ export async function streamImport(filePath: string, requestId: string): Promise
   }
 }
 
-/**
- * 流式解析文件获取基本信息（只统计，不写入数据库）
- * 用于合并功能的预览
- */
-export async function streamParseFileInfo(
-  filePath: string,
-  requestId: string
-): Promise<{
+/** 流式解析文件信息的返回结果 */
+export interface StreamParseFileInfoResult {
+  // 基本信息（用于预览）
   name: string
   format: string
   platform: string
   messageCount: number
   memberCount: number
   fileSize: number
-}> {
+  // 完整解析结果（用于后续合并，避免重复解析）
+  parseResult: {
+    meta: ParsedMeta
+    members: ParsedMember[]
+    messages: ParsedMessage[]
+  }
+}
+
+/**
+ * 流式解析文件获取基本信息和完整解析结果
+ * 用于合并功能的预览，同时缓存完整结果供后续合并使用
+ */
+export async function streamParseFileInfo(filePath: string, requestId: string): Promise<StreamParseFileInfoResult> {
   const formatFeature = detectFormat(filePath)
   if (!formatFeature) {
     throw new Error('无法识别文件格式')
@@ -340,9 +347,9 @@ export async function streamParseFileInfo(
     message: '正在读取文件...',
   })
 
-  let name = '未知群聊'
-  let platform = formatFeature.platform
-  let messageCount = 0
+  let meta: ParsedMeta = { name: '未知群聊', platform: formatFeature.platform, type: 'group' }
+  const members: ParsedMember[] = []
+  const messages: ParsedMessage[] = []
   const memberSet = new Set<string>()
 
   await streamParseFile(filePath, {
@@ -353,31 +360,38 @@ export async function streamParseFileInfo(
       sendProgress(requestId, progress)
     },
 
-    onMeta: (meta) => {
-      name = meta.name
-      platform = meta.platform
+    onMeta: (parsedMeta) => {
+      meta = parsedMeta
     },
 
-    onMembers: (members) => {
-      for (const m of members) {
-        memberSet.add(m.platformId)
+    onMembers: (parsedMembers) => {
+      for (const m of parsedMembers) {
+        if (!memberSet.has(m.platformId)) {
+          memberSet.add(m.platformId)
+          members.push(m)
+        }
       }
     },
 
-    onMessageBatch: (messages) => {
-      messageCount += messages.length
-      for (const msg of messages) {
+    onMessageBatch: (batch) => {
+      messages.push(...batch)
+      for (const msg of batch) {
         memberSet.add(msg.senderPlatformId)
       }
     },
   })
 
   return {
-    name,
+    name: meta.name,
     format: formatFeature.name,
-    platform,
-    messageCount,
+    platform: meta.platform,
+    messageCount: messages.length,
     memberCount: memberSet.size,
     fileSize,
+    parseResult: {
+      meta,
+      members,
+      messages,
+    },
   }
 }
