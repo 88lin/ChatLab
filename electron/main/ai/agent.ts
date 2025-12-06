@@ -174,46 +174,40 @@ ${memberNote}
 }
 
 /**
- * 获取默认的角色定义
+ * 获取 Fallback 角色定义（主要配置来自前端 src/config/prompts.ts）
+ * 仅在前端未传递 promptConfig 时使用
  */
-function getDefaultRoleDefinition(chatType: 'group' | 'private'): string {
-  if (chatType === 'private') {
-    return `你是一个专业的私聊记录分析助手。
-你的任务是帮助用户理解和分析他们的私聊记录数据。
-
-注意：这是一个私聊对话，只有两个人参与。你的分析应该关注：
-- 两人之间的对话互动
-- 谁更主动、谁回复更多
-- 对话的主题和内容变化
-- 不要使用"群"这个词，使用"对话"或"聊天"`
-  }
-
-  return `你是一个专业的群聊记录分析助手。
-你的任务是帮助用户理解和分析他们的群聊记录数据。`
+function getFallbackRoleDefinition(chatType: 'group' | 'private'): string {
+  const chatTypeDesc = chatType === 'private' ? '私聊' : '群聊'
+  return `你是一个专业的${chatTypeDesc}记录分析助手。
+你的任务是帮助用户理解和分析他们的${chatTypeDesc}记录数据。`
 }
 
 /**
- * 获取默认的回答要求
+ * 获取 Fallback 回答要求（主要配置来自前端 src/config/prompts.ts）
+ * 仅在前端未传递 promptConfig 时使用
  */
-function getDefaultResponseRules(): string {
+function getFallbackResponseRules(): string {
   return `1. 基于工具返回的数据回答，不要编造信息
 2. 如果数据不足以回答问题，请说明
-3. 回答要简洁明了，使用 Markdown 格式
-4. 可以引用具体的发言作为证据
-5. 对于统计数据，可以适当总结趋势和特点`
+3. 回答要简洁明了，使用 Markdown 格式`
 }
 
 /**
  * 构建完整的系统提示词
+ *
+ * 提示词配置主要来自前端 src/config/prompts.ts，通过 promptConfig 参数传递。
+ * Fallback 仅在前端未传递配置时使用（一般不会发生）。
+ *
  * @param chatType 聊天类型 ('group' | 'private')
- * @param promptConfig 用户自定义提示词配置（可选）
+ * @param promptConfig 用户自定义提示词配置（来自前端激活的预设）
  */
 function buildSystemPrompt(chatType: 'group' | 'private' = 'group', promptConfig?: PromptConfig): string {
-  // 使用用户配置或默认配置
-  const roleDefinition = promptConfig?.roleDefinition || getDefaultRoleDefinition(chatType)
-  const responseRules = promptConfig?.responseRules || getDefaultResponseRules()
+  // 使用用户配置或 fallback
+  const roleDefinition = promptConfig?.roleDefinition || getFallbackRoleDefinition(chatType)
+  const responseRules = promptConfig?.responseRules || getFallbackResponseRules()
 
-  // 获取锁定的系统部分
+  // 获取锁定的系统部分（包含动态日期和工具说明）
   const lockedSection = getLockedPromptSection(chatType)
 
   // 组合完整提示词

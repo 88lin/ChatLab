@@ -1,56 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { AnalysisSession, ImportProgress, KeywordTemplate, PromptPreset, AIPromptSettings } from '@/types/chat'
+import {
+  BUILTIN_PRESETS,
+  DEFAULT_GROUP_PRESET_ID,
+  DEFAULT_PRIVATE_PRESET_ID,
+  getOriginalBuiltinPreset,
+} from '@/config/prompts'
 
-// ==================== 内置提示词预设 ====================
-
-/** 默认群聊预设ID */
-export const DEFAULT_GROUP_PRESET_ID = 'builtin-group-default'
-/** 默认私聊预设ID */
-export const DEFAULT_PRIVATE_PRESET_ID = 'builtin-private-default'
-
-/** 内置群聊预设 */
-const BUILTIN_GROUP_PRESET: PromptPreset = {
-  id: DEFAULT_GROUP_PRESET_ID,
-  name: '默认群聊分析',
-  chatType: 'group',
-  roleDefinition: `你是一个专业的群聊记录分析助手。
-你的任务是帮助用户理解和分析他们的群聊记录数据。`,
-  responseRules: `1. 基于工具返回的数据回答，不要编造信息
-2. 如果数据不足以回答问题，请说明
-3. 回答要简洁明了，使用 Markdown 格式
-4. 可以引用具体的发言作为证据
-5. 对于统计数据，可以适当总结趋势和特点`,
-  isBuiltIn: true,
-  createdAt: Date.now(),
-  updatedAt: Date.now(),
-}
-
-/** 内置私聊预设 */
-const BUILTIN_PRIVATE_PRESET: PromptPreset = {
-  id: DEFAULT_PRIVATE_PRESET_ID,
-  name: '默认私聊分析',
-  chatType: 'private',
-  roleDefinition: `你是一个专业的私聊记录分析助手。
-你的任务是帮助用户理解和分析他们的私聊记录数据。
-
-注意：这是一个私聊对话，只有两个人参与。你的分析应该关注：
-- 两人之间的对话互动
-- 谁更主动、谁回复更多
-- 对话的主题和内容变化
-- 不要使用"群"这个词，使用"对话"或"聊天"`,
-  responseRules: `1. 基于工具返回的数据回答，不要编造信息
-2. 如果数据不足以回答问题，请说明
-3. 回答要简洁明了，使用 Markdown 格式
-4. 可以引用具体的发言作为证据
-5. 关注两人之间的互动模式和对话特点`,
-  isBuiltIn: true,
-  createdAt: Date.now(),
-  updatedAt: Date.now(),
-}
-
-/** 所有内置预设 */
-export const BUILTIN_PRESETS: PromptPreset[] = [BUILTIN_GROUP_PRESET, BUILTIN_PRIVATE_PRESET]
+// 重新导出常量，保持向后兼容
+export { DEFAULT_GROUP_PRESET_ID, DEFAULT_PRIVATE_PRESET_ID, BUILTIN_PRESETS }
 
 export const useChatStore = defineStore(
   'chat',
@@ -330,13 +289,30 @@ export const useChatStore = defineStore(
 
     // ==================== AI 提示词预设管理 ====================
     const customPromptPresets = ref<PromptPreset[]>([])
+    /** 内置预设的用户覆盖（key: presetId, value: 覆盖的字段） */
+    const builtinPresetOverrides = ref<
+      Record<string, { name?: string; roleDefinition?: string; responseRules?: string; updatedAt?: number }>
+    >({})
     const aiPromptSettings = ref<AIPromptSettings>({
       activeGroupPresetId: DEFAULT_GROUP_PRESET_ID,
       activePrivatePresetId: DEFAULT_PRIVATE_PRESET_ID,
     })
 
-    /** 获取所有预设（内置 + 自定义） */
-    const allPromptPresets = computed(() => [...BUILTIN_PRESETS, ...customPromptPresets.value])
+    /** 获取所有预设（内置+覆盖 + 自定义） */
+    const allPromptPresets = computed(() => {
+      // 合并内置预设和用户覆盖
+      const mergedBuiltins = BUILTIN_PRESETS.map((preset) => {
+        const override = builtinPresetOverrides.value[preset.id]
+        if (override) {
+          return {
+            ...preset,
+            ...override,
+          }
+        }
+        return preset
+      })
+      return [...mergedBuiltins, ...customPromptPresets.value]
+    })
 
     /** 获取群聊可用的预设 */
     const groupPresets = computed(() => allPromptPresets.value.filter((p) => p.chatType === 'group'))
@@ -374,11 +350,26 @@ export const useChatStore = defineStore(
       return newPreset.id
     }
 
-    /** 更新预设 */
+    /** 更新预设（支持内置和自定义） */
     function updatePromptPreset(
       presetId: string,
       updates: { name?: string; chatType?: PromptPreset['chatType']; roleDefinition?: string; responseRules?: string }
     ) {
+      // 检查是否是内置预设
+      const isBuiltin = BUILTIN_PRESETS.some((p) => p.id === presetId)
+      if (isBuiltin) {
+        // 更新内置预设的覆盖
+        builtinPresetOverrides.value[presetId] = {
+          ...builtinPresetOverrides.value[presetId],
+          name: updates.name,
+          roleDefinition: updates.roleDefinition,
+          responseRules: updates.responseRules,
+          updatedAt: Date.now(),
+        }
+        return
+      }
+
+      // 更新自定义预设
       const index = customPromptPresets.value.findIndex((p) => p.id === presetId)
       if (index !== -1) {
         customPromptPresets.value[index] = {
@@ -387,6 +378,21 @@ export const useChatStore = defineStore(
           updatedAt: Date.now(),
         }
       }
+    }
+
+    /** 重置内置预设为原始值 */
+    function resetBuiltinPreset(presetId: string): boolean {
+      const original = getOriginalBuiltinPreset(presetId)
+      if (!original) return false
+
+      // 删除覆盖
+      delete builtinPresetOverrides.value[presetId]
+      return true
+    }
+
+    /** 检查内置预设是否被修改过 */
+    function isBuiltinPresetModified(presetId: string): boolean {
+      return !!builtinPresetOverrides.value[presetId]
     }
 
     /** 删除自定义预设 */
@@ -461,6 +467,7 @@ export const useChatStore = defineStore(
       customKeywordTemplates,
       deletedPresetTemplateIds,
       customPromptPresets,
+      builtinPresetOverrides,
       aiPromptSettings,
       // Computed
       currentSession,
@@ -491,6 +498,8 @@ export const useChatStore = defineStore(
       setActiveGroupPreset,
       setActivePrivatePreset,
       getActivePresetForChatType,
+      resetBuiltinPreset,
+      isBuiltinPresetModified,
     }
   },
   {
@@ -507,6 +516,7 @@ export const useChatStore = defineStore(
           'deletedPresetTemplateIds',
           'aiGlobalSettings',
           'customPromptPresets',
+          'builtinPresetOverrides',
           'aiPromptSettings',
         ],
         storage: localStorage,
