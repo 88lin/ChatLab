@@ -41,6 +41,9 @@ import {
   getMembers,
   updateMemberAliases,
   deleteMember,
+  // SQL 实验室
+  executeRawSQL,
+  getSchema,
 } from './query'
 import { streamImport, streamParseFileInfo } from './import'
 
@@ -102,6 +105,10 @@ const syncHandlers: Record<string, (payload: any) => any> = {
   getMessageContext: (p) => getMessageContext(p.sessionId, p.messageIds, p.contextSize),
   getRecentMessages: (p) => getRecentMessages(p.sessionId, p.filter, p.limit),
   getConversationBetween: (p) => getConversationBetween(p.sessionId, p.memberId1, p.memberId2, p.filter, p.limit),
+
+  // SQL 实验室
+  executeRawSQL: (p) => executeRawSQL(p.sessionId, p.sql),
+  getSchema: (p) => getSchema(p.sessionId),
 }
 
 // 异步消息处理器（流式操作）

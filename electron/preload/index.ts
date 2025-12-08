@@ -315,6 +315,43 @@ const chatApi = {
   deleteMember: (sessionId: string, memberId: number): Promise<boolean> => {
     return ipcRenderer.invoke('chat:deleteMember', sessionId, memberId)
   },
+
+  // ==================== SQL 实验室 ====================
+
+  /**
+   * 执行用户 SQL 查询
+   */
+  executeSQL: (
+    sessionId: string,
+    sql: string
+  ): Promise<{
+    columns: string[]
+    rows: any[][]
+    rowCount: number
+    duration: number
+    limited: boolean
+  }> => {
+    return ipcRenderer.invoke('chat:executeSQL', sessionId, sql)
+  },
+
+  /**
+   * 获取数据库 Schema
+   */
+  getSchema: (
+    sessionId: string
+  ): Promise<
+    Array<{
+      name: string
+      columns: Array<{
+        name: string
+        type: string
+        notnull: boolean
+        pk: boolean
+      }>
+    }>
+  > => {
+    return ipcRenderer.invoke('chat:getSchema', sessionId)
+  },
 }
 
 // Merge API - 合并功能

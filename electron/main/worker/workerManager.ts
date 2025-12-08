@@ -435,3 +435,37 @@ export async function getConversationBetween(
 ): Promise<{ messages: SearchMessageResult[]; total: number; member1Name: string; member2Name: string }> {
   return sendToWorker('getConversationBetween', { sessionId, memberId1, memberId2, filter, limit })
 }
+
+// ==================== SQL 实验室 API ====================
+
+export interface SQLResult {
+  columns: string[]
+  rows: any[][]
+  rowCount: number
+  duration: number
+  limited: boolean
+}
+
+export interface TableSchema {
+  name: string
+  columns: {
+    name: string
+    type: string
+    notnull: boolean
+    pk: boolean
+  }[]
+}
+
+/**
+ * 执行用户 SQL 查询
+ */
+export async function executeRawSQL(sessionId: string, sql: string): Promise<SQLResult> {
+  return sendToWorker('executeRawSQL', { sessionId, sql })
+}
+
+/**
+ * 获取数据库 Schema
+ */
+export async function getSchema(sessionId: string): Promise<TableSchema[]> {
+  return sendToWorker('getSchema', { sessionId })
+}

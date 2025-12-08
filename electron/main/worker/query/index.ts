@@ -38,3 +38,7 @@ export {
 
 // AI 查询
 export { searchMessages, getMessageContext, getRecentMessages, getConversationBetween } from './ai'
+
+// SQL 实验室
+export { executeRawSQL, getSchema } from './sql'
+export type { SQLResult, TableSchema } from './sql'

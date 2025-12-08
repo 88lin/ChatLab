@@ -13,6 +13,7 @@ import QuotesTab from '@/components/analysis/QuotesTab.vue'
 import RelationshipsTab from '@/components/analysis/RelationshipsTab.vue'
 import AITab from '@/components/analysis/AITab.vue'
 import MemberTab from '@/components/analysis/MemberTab.vue'
+import SQLLabTab from '@/components/analysis/SQLLabTab.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -42,6 +43,7 @@ const tabs = [
   // { id: 'timeline', label: '群趋势', icon: 'i-heroicons-chart-bar' },
   { id: 'members', label: '群成员', icon: 'i-heroicons-user-group' },
   { id: 'ai', label: 'AI实验室', icon: 'i-heroicons-sparkles' },
+  { id: 'sql', label: 'SQL实验室', icon: 'i-heroicons-command-line' },
 ]
 
 const activeTab = ref((route.query.tab as string) || 'overview')
@@ -356,6 +358,7 @@ onMounted(() => {
               :time-filter="timeFilter"
               chat-type="group"
             />
+            <SQLLabTab v-else-if="activeTab === 'sql'" :key="'sql-' + selectedYear" :session-id="currentSessionId!" />
           </Transition>
         </div>
       </div>

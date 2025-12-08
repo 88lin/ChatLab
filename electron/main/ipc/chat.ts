@@ -521,4 +521,30 @@ export function registerChatHandlers(ctx: IpcContext): void {
       return false
     }
   })
+
+  // ==================== SQL 实验室 ====================
+
+  /**
+   * 执行用户 SQL 查询
+   */
+  ipcMain.handle('chat:executeSQL', async (_, sessionId: string, sql: string) => {
+    try {
+      return await worker.executeRawSQL(sessionId, sql)
+    } catch (error) {
+      console.error('执行 SQL 失败：', error)
+      throw error
+    }
+  })
+
+  /**
+   * 获取数据库 Schema
+   */
+  ipcMain.handle('chat:getSchema', async (_, sessionId: string) => {
+    try {
+      return await worker.getSchema(sessionId)
+    } catch (error) {
+      console.error('获取 Schema 失败：', error)
+      return []
+    }
+  })
 }
