@@ -140,25 +140,14 @@ function getProgressDetail(): string {
       <div class="flex min-h-full w-full flex-col items-center justify-center px-4 py-12">
         <!-- Hero Section -->
         <div class="xl:mb-16 mb-8 text-center">
-          <div class="relative inline-block">
-            <h1
-              class="mb-6 bg-linear-to-r from-pink-500 via-pink-500 to-violet-500 bg-clip-text text-6xl font-black tracking-tight text-transparent sm:text-8xl drop-shadow-sm animate-gradient-x bg-size-[200%_auto]"
-            >
-              ChatLab
-            </h1>
-          </div>
-          <div class="mx-auto flex items-center justify-center">
-            <div class="relative">
-              <span
-                class="text-xl font-black italic tracking-wide text-pink-500 transition-transform duration-300 hover:scale-105"
-              >
-                你的本地 AI 聊天分析实验室
-              </span>
-              <UIcon
-                name="i-heroicons-sparkles"
-                class="absolute -right-6 -top-3 h-5 w-5 animate-bounce text-pink-400"
-              />
-            </div>
+          <!-- Title -->
+          <h1 class="mb-4 text-6xl sm:text-7xl lg:text-8xl font-black tracking-tight text-pink-500">ChatLab</h1>
+          <!-- Description -->
+          <div class="relative inline-block mb-8">
+            <p class="text-lg sm:text-2xl text-gray-600 dark:text-gray-400 font-medium">
+              你的本地聊天分析实验室ヾ(*ゝω・*)ノ
+            </p>
+            <UIcon name="i-heroicons-sparkles" class="absolute -right-6 -top-3 h-5 w-5 animate-bounce text-pink-400" />
           </div>
         </div>
 
@@ -224,7 +213,7 @@ function getProgressDetail(): string {
                 </div>
 
                 <!-- Text -->
-                <div class="w-full text-center">
+                <div class="w-full min-w-80 text-center">
                   <template v-if="isImporting && importProgress">
                     <!-- 导入中显示进度 -->
                     <p class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">{{ getProgressText() }}</p>

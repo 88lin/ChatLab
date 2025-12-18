@@ -149,7 +149,7 @@ function getSessionAvatarText(session: AnalysisSession): string {
     <div class="flex flex-col p-4">
       <!-- Header / Toggle -->
       <div class="mb-2 flex items-center" :class="[isCollapsed ? 'justify-center' : 'justify-between']">
-        <div v-if="!isCollapsed" class="text-lg font-semibold text-gray-900 dark:text-white">ChatLab</div>
+        <div v-if="!isCollapsed" class="text-2xl font-black tracking-tight text-pink-500 ml-2">ChatLab</div>
         <UTooltip :text="isCollapsed ? '展开侧边栏' : '收起侧边栏'" :popper="{ placement: 'right' }">
           <UButton
             icon="i-heroicons-bars-3"
@@ -178,7 +178,7 @@ function getSessionAvatarText(session: AnalysisSession): string {
       </UTooltip>
 
       <!-- Tools Button -->
-      <UTooltip :text="isCollapsed ? '实用工具' : ''" :popper="{ placement: 'right' }">
+      <UTooltip :text="isCollapsed ? '实用工具' : ''" :popper="{ placement: 'right' }" hidden>
         <UButton
           :block="!isCollapsed"
           class="transition-all rounded-full hover:bg-gray-200/60 dark:hover:bg-gray-800 h-12 cursor-pointer mt-2"
