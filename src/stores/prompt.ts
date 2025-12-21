@@ -28,6 +28,7 @@ export const usePromptStore = defineStore(
     const aiConfigVersion = ref(0)
     const aiGlobalSettings = ref({
       maxMessagesPerRequest: 200,
+      maxHistoryRounds: 5, // 历史对话轮数限制
     })
     const customKeywordTemplates = ref<KeywordTemplate[]>([])
     const deletedPresetTemplateIds = ref<string[]>([])
@@ -72,7 +73,7 @@ export const usePromptStore = defineStore(
     /**
      * 更新 AI 全局设置
      */
-    function updateAIGlobalSettings(settings: Partial<{ maxMessagesPerRequest: number }>) {
+    function updateAIGlobalSettings(settings: Partial<{ maxMessagesPerRequest: number; maxHistoryRounds: number }>) {
       aiGlobalSettings.value = { ...aiGlobalSettings.value, ...settings }
       notifyAIConfigChanged()
     }

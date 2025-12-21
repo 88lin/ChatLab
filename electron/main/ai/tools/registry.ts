@@ -107,9 +107,13 @@ function formatTimeRange(timeFilter?: { startTs: number; endTs: number }): strin
   }
 }
 
+// 消息内容最大长度（超过则截断）
+const MAX_MESSAGE_CONTENT_LENGTH = 200
+
 /**
  * 格式化消息为简洁文本格式
  * 输出格式: "2025/3/3 07:25:04 张三: 消息内容"
+ * 超长内容会被截断
  */
 function formatMessageCompact(msg: {
   id?: number
@@ -118,7 +122,13 @@ function formatMessageCompact(msg: {
   timestamp: number
 }): string {
   const time = new Date(msg.timestamp * 1000).toLocaleString('zh-CN')
-  const content = msg.content || '[无内容]'
+  let content = msg.content || '[无内容]'
+
+  // 截断超长消息内容
+  if (content.length > MAX_MESSAGE_CONTENT_LENGTH) {
+    content = content.slice(0, MAX_MESSAGE_CONTENT_LENGTH) + '...'
+  }
+
   return `${time} ${msg.senderName}: ${content}`
 }
 
@@ -147,7 +157,7 @@ const searchMessagesTool: ToolDefinition = {
         },
         limit: {
           type: 'number',
-          description: '返回消息数量限制，默认 200，最大 5000',
+          description: '返回消息数量限制，默认 100，最大 5000',
         },
         year: {
           type: 'number',
@@ -194,8 +204,8 @@ async function searchMessagesExecutor(
   context: ToolContext
 ): Promise<unknown> {
   const { sessionId, timeFilter: contextTimeFilter, maxMessagesLimit } = context
-  // 用户配置优先：如果用户设置了 maxMessagesLimit，使用它；否则使用 LLM 指定的值或默认值 200，上限 5000
-  const limit = Math.min(maxMessagesLimit || params.limit || 200, 5000)
+  // 用户配置优先：如果用户设置了 maxMessagesLimit，使用它；否则使用 LLM 指定的值或默认值 100，上限 5000
+  const limit = Math.min(maxMessagesLimit || params.limit || 100, 5000)
 
   // 使用扩展的时间参数解析
   const effectiveTimeFilter = parseExtendedTimeParams(params, contextTimeFilter)
@@ -232,7 +242,7 @@ const getRecentMessagesTool: ToolDefinition = {
       properties: {
         limit: {
           type: 'number',
-          description: '返回消息数量限制，默认 100',
+          description: '返回消息数量限制，默认 100（节省 token，可根据需要增加）',
         },
         year: {
           type: 'number',
@@ -276,7 +286,7 @@ async function getRecentMessagesExecutor(
   context: ToolContext
 ): Promise<unknown> {
   const { sessionId, timeFilter: contextTimeFilter, maxMessagesLimit } = context
-  // 用户配置优先：如果用户设置了 maxMessagesLimit，使用它；否则使用 LLM 指定的值或默认值 100
+  // 用户配置优先：如果用户设置了 maxMessagesLimit，使用它；否则使用 LLM 指定的值或默认值 100（节省 token）
   const limit = maxMessagesLimit || params.limit || 100
 
   // 使用扩展的时间参数解析
@@ -600,7 +610,7 @@ async function getConversationBetweenExecutor(
   context: ToolContext
 ): Promise<unknown> {
   const { sessionId, timeFilter: contextTimeFilter, maxMessagesLimit } = context
-  // 用户配置优先：如果用户设置了 maxMessagesLimit，使用它；否则使用 LLM 指定的值或默认值 100
+  // 用户配置优先：如果用户设置了 maxMessagesLimit，使用它；否则使用 LLM 指定的值或默认值 100（节省 token）
   const limit = maxMessagesLimit || params.limit || 100
 
   // 使用扩展的时间参数解析

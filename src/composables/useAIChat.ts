@@ -251,10 +251,15 @@ export function useAIChat(
       })
 
       // 收集历史消息（排除当前用户消息和 AI 占位消息）
+      // 应用历史轮数限制：每轮 = 用户提问 + AI 回复 = 2 条消息
+      const maxHistoryRounds = aiGlobalSettings.value.maxHistoryRounds ?? 5
+      const maxHistoryMessages = maxHistoryRounds * 2
+
       const historyMessages = messages.value
         .slice(0, -2) // 排除刚添加的用户消息和 AI 占位消息
         .filter((msg) => msg.role === 'user' || msg.role === 'assistant')
         .filter((msg) => msg.content && msg.content.trim() !== '') // 排除空消息
+        .slice(-maxHistoryMessages) // 只保留最近 N 轮对话
         .map((msg) => ({
           role: msg.role as 'user' | 'assistant',
           content: msg.content,

@@ -194,8 +194,8 @@ defineExpose({
         <div class="text-xs text-amber-700 dark:text-amber-400">
           <p class="font-medium">注意事项</p>
           <ul class="mt-1 list-inside list-disc space-y-0.5 text-amber-600 dark:text-amber-500">
-            <li>清理后无法恢复，请谨慎操作</li>
-            <li>日志文件排查BUG用的，可以安全清理</li>
+            <li>日志文件主要用于排查BUG，可以安全清理</li>
+            <li>所有文件清理后无法恢复，请谨慎操作</li>
           </ul>
         </div>
       </div>
