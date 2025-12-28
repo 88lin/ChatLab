@@ -353,9 +353,12 @@ const file2Name = computed(() => files.value[1]?.name || '文件 2')
       <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
         <!-- 标题 -->
         <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-800">
-          <h2 class="font-semibold text-gray-900 dark:text-white">合并聊天记录</h2>
+          <h2 class="font-semibold text-gray-900 dark:text-white">群工局：合并聊天记录</h2>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
             将多个聊天记录文件合并为一个，支持 JSON、JSONL、TXT 等多种格式
+          </p>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            该工具的用途是，如果你们群有多份聊天记录，每个人的聊天记录都不一样，可以试试使用这个工具进行合并，合并后将会得到该群最完整的聊天记录
           </p>
         </div>
 
@@ -474,12 +477,7 @@ const file2Name = computed(() => files.value[1]?.name || '文件 2')
                       : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600',
                   ]"
                 >
-                  <input
-                    v-model="outputFormat"
-                    type="radio"
-                    :value="opt.value"
-                    class="h-4 w-4 text-primary-600"
-                  />
+                  <input v-model="outputFormat" type="radio" :value="opt.value" class="h-4 w-4 text-primary-600" />
                   <div>
                     <div class="text-sm font-medium text-gray-900 dark:text-white">{{ opt.label }}</div>
                     <div class="text-xs text-gray-500 dark:text-gray-400">{{ opt.description }}</div>
