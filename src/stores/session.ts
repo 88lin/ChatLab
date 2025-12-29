@@ -277,8 +277,56 @@ export const useSessionStore = defineStore(
       }
     }
 
+    // 置顶会话 ID 列表
+    const pinnedSessionIds = ref<string[]>([])
+
+    // 排序后的会话列表
+    const sortedSessions = computed(() => {
+      // 建立索引映射，index 越大表示越晚置顶
+      const pinIndexMap = new Map(pinnedSessionIds.value.map((id, index) => [id, index]))
+
+      return [...sessions.value].sort((a, b) => {
+        const aPinIndex = pinIndexMap.get(a.id)
+        const bPinIndex = pinIndexMap.get(b.id)
+        const aPinned = aPinIndex !== undefined
+        const bPinned = bPinIndex !== undefined
+
+        // 两个都置顶：后置顶的（index 大的）排前面
+        if (aPinned && bPinned) {
+          return bPinIndex! - aPinIndex!
+        }
+        // 只有一个置顶：置顶的排前面
+        if (aPinned && !bPinned) return -1
+        if (!aPinned && bPinned) return 1
+
+        // 都不置顶：保持原顺序（通常是按时间倒序）
+        return 0
+      })
+    })
+
+    /**
+     * 切换会话置顶状态
+     */
+    function togglePinSession(id: string) {
+      const index = pinnedSessionIds.value.indexOf(id)
+      if (index !== -1) {
+        pinnedSessionIds.value.splice(index, 1)
+      } else {
+        pinnedSessionIds.value.push(id)
+      }
+    }
+
+    /**
+     * 检查会话是否已置顶
+     */
+    function isPinned(id: string): boolean {
+      return pinnedSessionIds.value.includes(id)
+    }
+
     return {
       sessions,
+      sortedSessions,
+      pinnedSessionIds,
       currentSessionId,
       isImporting,
       importProgress,
@@ -300,6 +348,8 @@ export const useSessionStore = defineStore(
       renameSession,
       clearSelection,
       updateSessionOwnerId,
+      togglePinSession,
+      isPinned,
     }
   },
   {
@@ -307,6 +357,10 @@ export const useSessionStore = defineStore(
       {
         pick: ['currentSessionId'],
         storage: sessionStorage,
+      },
+      {
+        pick: ['pinnedSessionIds'],
+        storage: localStorage,
       },
     ],
   }

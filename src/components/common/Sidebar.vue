@@ -15,7 +15,7 @@ dayjs.locale('zh-cn')
 
 const sessionStore = useSessionStore()
 const layoutStore = useLayoutStore()
-const { sessions } = storeToRefs(sessionStore)
+const { sessions, sortedSessions } = storeToRefs(sessionStore)
 const { isSidebarCollapsed: isCollapsed } = storeToRefs(layoutStore)
 const { toggleSidebar } = layoutStore
 const router = useRouter()
@@ -99,17 +99,26 @@ function closeDeleteModal() {
 
 // 生成右键菜单项
 function getContextMenuItems(session: AnalysisSession) {
+  const isPinned = sessionStore.isPinned(session.id)
   return [
     [
       {
         label: '重命名',
         icon: 'i-lucide-pencil',
+        class: 'p-2',
         onSelect: () => openRenameModal(session),
+      },
+      {
+        label: isPinned ? '取消置顶' : '置顶',
+        icon: isPinned ? 'i-lucide-pin-off' : 'i-lucide-pin',
+        class: 'p-2',
+        onSelect: () => sessionStore.togglePinSession(session.id),
       },
       {
         label: '删除',
         icon: 'i-lucide-trash',
         color: 'error' as const,
+        class: 'p-2',
         onSelect: () => openDeleteModal(session),
       },
     ],
@@ -218,7 +227,7 @@ function getSessionAvatarText(session: AnalysisSession): string {
 
         <div class="space-y-1 pb-8">
           <UTooltip
-            v-for="session in sessions"
+            v-for="session in sortedSessions"
             :key="session.id"
             :text="isCollapsed ? session.name : ''"
             :popper="{ placement: 'right' }"
@@ -260,9 +269,16 @@ function getSessionAvatarText(session: AnalysisSession): string {
 
                 <!-- Session Info -->
                 <div v-if="!isCollapsed" class="min-w-0 flex-1">
-                  <p class="truncate text-sm font-medium">
-                    {{ session.name }}
-                  </p>
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="truncate text-sm font-medium">
+                      {{ session.name }}
+                    </p>
+                    <UIcon
+                      v-if="sessionStore.isPinned(session.id)"
+                      name="i-lucide-pin"
+                      class="h-3.5 w-3.5 shrink-0 text-gray-400 rotate-45"
+                    />
+                  </div>
                   <p class="truncate text-xs text-gray-500 dark:text-gray-400">
                     {{ session.messageCount }} 条消息 · {{ formatTime(session.importedAt) }}
                   </p>
