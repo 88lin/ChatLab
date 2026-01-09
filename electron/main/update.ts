@@ -4,14 +4,14 @@ import { platform } from '@electron-toolkit/utils'
 import { logger } from './logger'
 import { getActiveProxyUrl } from './network/proxy'
 
-// R2 镜像源 URL（用于中国大陆用户）
+// R2 镜像源 URL（速度更快，作为主要更新源）
 const R2_MIRROR_URL = 'https://chatlab.1app.top/releases/download'
 
 // 更新源类型
 type UpdateSource = 'github' | 'r2'
 
-// 当前使用的更新源
-let currentSource: UpdateSource = 'github'
+// 当前使用的更新源（默认 R2 优先）
+let currentSource: UpdateSource = 'r2'
 
 // 是否已尝试过备用源
 let hasTriedFallback = false
@@ -44,17 +44,29 @@ function switchToR2Mirror(): void {
     provider: 'generic',
     url: R2_MIRROR_URL,
   })
-  logger.info(`[Update] 已切换到 R2 镜像源: ${R2_MIRROR_URL}`)
+  logger.info(`[Update] 使用 R2 镜像源: ${R2_MIRROR_URL}`)
 }
 
 /**
- * 重置为 GitHub 源（下次检查时使用）
+ * 切换到 GitHub 源（备用更新源）
  */
-function resetToGitHubSource(): void {
+function switchToGitHub(): void {
   currentSource = 'github'
+  // 使用 GitHub 作为 generic provider
+  autoUpdater.setFeedURL({
+    provider: 'github',
+    owner: 'hellodigua',
+    repo: 'ChatLab',
+  })
+  logger.info('[Update] 已切换到 GitHub 备用源')
+}
+
+/**
+ * 重置为默认更新源（R2 优先）
+ */
+function resetToDefaultSource(): void {
   hasTriedFallback = false
-  // electron-updater 默认使用 electron-builder.yml 中的配置（GitHub）
-  // 无需显式设置，只需要不调用 setFeedURL 即可
+  switchToR2Mirror()
 }
 
 /**
@@ -233,17 +245,17 @@ const checkUpdate = (win) => {
   autoUpdater.on('error', (err) => {
     logger.error(`[Update] 更新错误 (${currentSource}): ${err.message || err}`)
 
-    // 如果是 GitHub 源且为网络错误，尝试切换到 R2 备用源
-    if (currentSource === 'github' && !hasTriedFallback && isNetworkError(err)) {
+    // 如果是 R2 源且为网络错误，尝试切换到 GitHub 备用源
+    if (currentSource === 'r2' && !hasTriedFallback && isNetworkError(err)) {
       hasTriedFallback = true
-      logger.info('[Update] GitHub 源访问失败，尝试切换到 R2 镜像源...')
+      logger.info('[Update] R2 镜像源访问失败，尝试切换到 GitHub 备用源...')
 
-      switchToR2Mirror()
+      switchToGitHub()
 
       // 延迟 1 秒后重试检查更新
       setTimeout(() => {
         autoUpdater.checkForUpdates().catch((retryErr) => {
-          logger.error(`[Update] R2 镜像源检查更新也失败: ${retryErr}`)
+          logger.error(`[Update] GitHub 备用源检查更新也失败: ${retryErr}`)
         })
       }, 1000)
     }
@@ -252,7 +264,8 @@ const checkUpdate = (win) => {
   // 等待 3 秒再检查更新，确保窗口准备完成，用户进入系统
   setTimeout(() => {
     isManualCheck = false // 自动检查
-    resetToGitHubSource() // 重置为 GitHub 源
+    resetToDefaultSource() // 重置为默认更新源（R2 优先）
+
     autoUpdater.checkForUpdates().catch((err) => {
       console.log('[Update] 检查更新失败:', err)
     })
@@ -269,7 +282,7 @@ const manualCheckForUpdates = () => {
 
   isManualCheck = true // 手动检查
   isFirstShow = false // 手动检查时，无论结果都显示提示
-  resetToGitHubSource() // 重置为 GitHub 源
+  resetToDefaultSource() // 重置为默认更新源（R2 优先）
 
   autoUpdater.checkForUpdates().catch((err) => {
     console.log('[Update] 手动检查更新失败:', err)
