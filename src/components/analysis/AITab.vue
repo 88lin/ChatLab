@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { SubTabs } from '@/components/UI'
-import ChatExplorer from './ai/ChatExplorer.vue'
+import ChatExplorer from './AIChat/ChatExplorer.vue'
 import SQLLabTab from './SQLLabTab.vue'
 import FilterTab from './Filter/FilterTab.vue'
 
