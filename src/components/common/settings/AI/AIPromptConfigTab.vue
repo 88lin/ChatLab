@@ -19,7 +19,7 @@ const emit = defineEmits<{
 const globalMaxMessages = computed({
   get: () => aiGlobalSettings.value.maxMessagesPerRequest,
   set: (val: number) => {
-    const clampedVal = Math.max(10, Math.min(10000, val || 200))
+    const clampedVal = Math.max(0, Math.min(50000, val || 200))
     promptStore.updateAIGlobalSettings({ maxMessagesPerRequest: clampedVal })
     emit('config-changed')
   },
@@ -85,7 +85,7 @@ const sqlExportFormat = computed({
               {{ t('settings.aiPrompt.maxMessages.description') }}
             </p>
           </div>
-          <UInput v-model.number="globalMaxMessages" type="number" min="1" max="10000" class="w-24" />
+          <UInputNumber v-model="globalMaxMessages" :min="0" :max="50000" class="w-30" />
         </div>
 
         <!-- AI上下文限制 -->
@@ -98,7 +98,7 @@ const sqlExportFormat = computed({
               {{ t('settings.aiPrompt.maxHistory.description') }}
             </p>
           </div>
-          <UInput v-model.number="globalMaxHistoryRounds" type="number" min="1" max="50" class="w-24" />
+          <UInputNumber v-model="globalMaxHistoryRounds" :min="1" :max="50" class="w-30" />
         </div>
       </div>
     </div>
