@@ -125,7 +125,8 @@ function handleDisagree() {
     }"
   >
     <template #content>
-      <div class="flex max-h-[85vh] flex-col p-6">
+      <!-- 弹窗区域禁止拖拽，避免顶部点击被拖拽区域抢占 -->
+      <div class="agreement-modal flex max-h-[85vh] flex-col p-6">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between gap-3">
           <div class="flex items-center gap-3">
@@ -179,6 +180,11 @@ function handleDisagree() {
 </template>
 
 <style scoped>
+/* 弹窗内禁用窗口拖拽 */
+.agreement-modal {
+  -webkit-app-region: no-drag;
+}
+
 /* 用户协议 markdown 样式优化 */
 .agreement-content {
   font-size: 0.875rem;

@@ -29,10 +29,10 @@ const features = computed(() => [
     <div class="relative h-full w-full overflow-y-auto">
       <div class="flex min-h-full w-full flex-col items-center justify-center px-4 py-12">
         <!-- Hero Section -->
-        <div class="relative xl:mb-6 mb-4 text-center">
-          <!-- Draggable Area above title -->
+        <div class="relative xl:mb-6 mb-4 w-full text-center">
+          <!-- 标题上方可拖拽区域，向上扩展覆盖空隙 -->
           <div
-            class="absolute -top-24 left-1/2 h-24 w-full max-w-3xl -translate-x-1/2"
+            class="absolute -top-32 left-0 right-0 h-32"
             style="-webkit-app-region: drag"
           />
           <!-- Title -->
