@@ -60,8 +60,7 @@ class MainProcess {
 
     initProxy() // 初始化代理配置
 
-    // 注册应用协议
-    app.setAsDefaultProtocolClient('chatlab')
+    // 暂不注册自定义协议，避免触发系统 URL 协议关联提示
 
     // 应用程序准备好之前注册
     protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { secure: true, standard: true } }])
