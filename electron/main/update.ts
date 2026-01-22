@@ -141,47 +141,11 @@ const checkUpdate = (win) => {
 
     showUpdateMessageBox = true
 
-    // 解析更新日志
-    let releaseNotes = ''
-    if (info.releaseNotes) {
-      if (typeof info.releaseNotes === 'string') {
-        releaseNotes = info.releaseNotes
-      } else if (Array.isArray(info.releaseNotes)) {
-        releaseNotes = info.releaseNotes.map((note) => note.note || note).join('\n')
-      }
-      // 简单清理 HTML 标签，合并连续空行，截断下载说明
-      releaseNotes = releaseNotes
-        .replace(/<[^>]*>/g, '')
-        .replace(/\n{2,}/g, '\n')
-        .trim()
-
-      // 如果包含下载说明章节，截断该部分及之后的内容
-      // 支持多种格式：Markdown（## Download）和 HTML 处理后的纯文本（Download）
-      const downloadPatterns = [
-        /^#{1,3}\s*Download\s*$/m, // Markdown 格式：# Download, ## Download, ### Download
-        /^Download\s*$/m, // HTML 处理后的纯文本格式
-        /^#{1,3}\s*下载说明\s*$/m, // 中文 Markdown 格式
-        /^下载说明\s*$/m, // 中文 HTML 处理后的格式
-      ]
-
-      for (const pattern of downloadPatterns) {
-        const match = releaseNotes.match(pattern)
-        if (match && match.index !== undefined) {
-          releaseNotes = releaseNotes.substring(0, match.index).trim()
-          break
-        }
-      }
-    }
-
-    const detail = releaseNotes
-      ? `更新内容：\n${releaseNotes}\n\n是否立即下载并安装新版本？`
-      : '是否立即下载并安装新版本？'
-
     dialog
       .showMessageBox({
         title: '发现新版本 v' + info.version,
         message: '发现新版本 v' + info.version,
-        detail,
+        detail: '是否立即下载并安装新版本？',
         buttons: ['立即下载', '取消'],
         defaultId: 0,
         cancelId: 1,
@@ -302,22 +266,10 @@ const manualCheckForUpdates = () => {
  * 控制台通过：window.api.app.simulateUpdate() 测试
  */
 const simulateUpdateDialog = (win) => {
-  const mockInfo = {
-    version: '9.9.9',
-    releaseNotes: `## 更新内容\n\n- 🎉 新增聊天记录查看器\n- 🔧 修复已知问题\n- ⚡️ 性能优化`,
-  }
-
-  // 解析更新日志
-  let releaseNotes = mockInfo.releaseNotes.replace(/<[^>]*>/g, '').trim()
-
-  const detail = releaseNotes
-    ? `更新内容：\n${releaseNotes}\n\n是否立即下载并安装新版本？`
-    : '是否立即下载并安装新版本？'
-
   dialog.showMessageBox({
-    title: '发现新版本 v' + mockInfo.version,
-    message: '发现新版本 v' + mockInfo.version,
-    detail,
+    title: '发现新版本 v9.9.9',
+    message: '发现新版本 v9.9.9',
+    detail: '是否立即下载并安装新版本？',
     buttons: ['立即下载', '取消'],
     defaultId: 0,
     cancelId: 1,
