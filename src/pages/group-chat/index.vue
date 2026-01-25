@@ -275,24 +275,24 @@ onMounted(() => {
         icon-class="bg-primary-600 text-white dark:bg-primary-500 dark:text-white"
       >
         <template #actions>
-          <UTooltip :text="t('analysis.tooltip.incrementalImport')">
-            <UButton
-              icon="i-heroicons-plus-circle"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              @click="showIncrementalImportModal = true"
-            />
-          </UTooltip>
-          <UTooltip :text="t('analysis.tooltip.chatViewer')">
-            <UButton
-              icon="i-heroicons-chat-bubble-bottom-center-text"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              @click="openChatRecordViewer"
-            />
-          </UTooltip>
+          <UButton
+            color="neutral"
+            variant="soft"
+            size="sm"
+            icon="i-heroicons-plus-circle"
+            @click="showIncrementalImportModal = true"
+          >
+            {{ t('analysis.incrementalImport', '增量导入') }}
+          </UButton>
+          <UButton
+            color="primary"
+            variant="soft"
+            size="sm"
+            icon="i-heroicons-chat-bubble-bottom-center-text"
+            @click="openChatRecordViewer"
+          >
+            {{ t('analysis.chatViewer', '聊天记录查看器') }}
+          </UButton>
           <UTooltip :text="t('analysis.tooltip.sessionIndex')">
             <UButton
               icon="i-heroicons-clock"

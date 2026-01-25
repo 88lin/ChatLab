@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useDateFormat } from '@vueuse/core'
+import { useDateFormat, useDebounceFn } from '@vueuse/core'
 
 const props = defineProps<{
   open: boolean
@@ -21,13 +21,13 @@ const isOpen = computed({
   set: (val) => emit('update:open', val),
 })
 
-// 查询模式：按时间 / 按数量
-type QueryMode = 'time' | 'count'
-const queryMode = ref<QueryMode>('count')
+// 查询模式：按时间 / 按范围
+type QueryMode = 'time' | 'range'
+const queryMode = ref<QueryMode>('range')
 
-// 按数量选项
-type CountPreset = 50 | 100 | 200 | 500
-const selectedCount = ref<CountPreset>(100)
+// 按范围选项（百分比 0-100）
+const rangePercent = ref(50)
+const totalSessionCount = ref(0) // 总会话数
 
 // 时间范围选项
 type TimeRangePreset = 'today' | 'yesterday' | 'week' | 'month' | 'custom'
@@ -52,8 +52,13 @@ const isLoading = ref(false)
 const isGenerating = ref(false)
 const currentIndex = ref(0)
 const totalToGenerate = ref(0) // 记录开始时的总数
-const results = ref<Array<{ id: number; status: 'success' | 'failed' | 'skipped'; message?: string }>>([])
+const results = ref<Array<{ id: number; status: 'success' | 'failed' | 'skipped'; message?: string; summary?: string }>>([])
 const shouldStop = ref(false)
+
+// 判断是否是消息数量太少的错误
+function isTooFewMessagesError(error: string): boolean {
+  return error.includes('少于3条') || error.includes('less than 3') || error.includes('无需生成摘要')
+}
 
 // 滚动容器引用
 const resultsContainer = ref<HTMLElement | null>(null)
@@ -106,14 +111,31 @@ const timeRange = computed(() => {
   }
 })
 
-// 待生成的会话（排除已有摘要的）
+// 会话可生成状态检查结果
+const canGenerateMap = ref<Record<number, { canGenerate: boolean; reason?: string }>>({})
+const isChecking = ref(false)
+
+// 待生成的会话（排除已有摘要的 + 消息太少的）
 const pendingSessions = computed(() => {
-  return sessions.value.filter((s) => !s.summary)
+  return sessions.value.filter((s) => {
+    if (s.summary) return false
+    const checkResult = canGenerateMap.value[s.id]
+    return checkResult?.canGenerate !== false
+  })
 })
 
 // 已有摘要的会话数
 const existingSummaryCount = computed(() => {
   return sessions.value.filter((s) => s.summary).length
+})
+
+// 消息数量太少的会话数（无摘要但无法生成）
+const tooFewMessagesCount = computed(() => {
+  return sessions.value.filter((s) => {
+    if (s.summary) return false
+    const checkResult = canGenerateMap.value[s.id]
+    return checkResult?.canGenerate === false
+  }).length
 })
 
 // 进度百分比
@@ -133,10 +155,16 @@ const stats = computed(() => {
 // 查询会话
 async function fetchSessions() {
   isLoading.value = true
+  canGenerateMap.value = {}
+
   try {
-    if (queryMode.value === 'count') {
-      // 按数量查询
-      sessions.value = await window.sessionApi.getRecent(props.sessionId, selectedCount.value)
+    if (queryMode.value === 'range') {
+      // 按范围查询：先获取总数，再按百分比计算数量
+      const allSessions = await window.sessionApi.getSessions(props.sessionId)
+      totalSessionCount.value = allSessions.length
+      const count = Math.ceil(allSessions.length * (rangePercent.value / 100))
+      // 取最近的 count 个会话（按时间倒序取后面的）
+      sessions.value = allSessions.slice(-count)
     } else {
       // 按时间查询
       if (!timeRange.value) {
@@ -149,6 +177,11 @@ async function fetchSessions() {
 
       sessions.value = await window.sessionApi.getByTimeRange(props.sessionId, startTs, endTs)
     }
+
+    // 检查哪些会话可以生成摘要
+    if (sessions.value.length > 0) {
+      await checkCanGenerate()
+    }
   } catch (error) {
     console.error('查询会话失败:', error)
     sessions.value = []
@@ -157,17 +190,47 @@ async function fetchSessions() {
   }
 }
 
+// 批量检查会话是否可以生成摘要
+async function checkCanGenerate() {
+  const noSummaryIds = sessions.value.filter((s) => !s.summary).map((s) => s.id)
+  if (noSummaryIds.length === 0) return
+
+  isChecking.value = true
+  try {
+    canGenerateMap.value = await window.sessionApi.checkCanGenerateSummary(props.sessionId, noSummaryIds)
+  } catch (error) {
+    console.error('检查会话摘要失败:', error)
+  } finally {
+    isChecking.value = false
+  }
+}
+
+// 防抖版本的 fetchSessions（用于滑块拖动）
+const debouncedFetchSessions = useDebounceFn(() => {
+  fetchSessions()
+}, 300)
+
 // 监听查询条件变化
 watch(
-  () => [queryMode.value, selectedCount.value, selectedPreset.value, customStartDate.value, customEndDate.value],
+  () => [queryMode.value, selectedPreset.value, customStartDate.value, customEndDate.value],
   () => {
-    if (queryMode.value === 'count') {
+    if (queryMode.value === 'range') {
       fetchSessions()
     } else if (selectedPreset.value !== 'custom' || (customStartDate.value && customEndDate.value)) {
       fetchSessions()
     }
   },
   { immediate: true }
+)
+
+// 单独监听滑块值变化（使用防抖）
+watch(
+  () => rangePercent.value,
+  () => {
+    if (queryMode.value === 'range') {
+      debouncedFetchSessions()
+    }
+  }
 )
 
 // 监听弹窗打开
@@ -197,41 +260,61 @@ async function startGenerate() {
   totalToGenerate.value = sessionsToProcess.length
   results.value = []
 
-  for (const session of sessionsToProcess) {
-    if (shouldStop.value) break
+  try {
+    for (const session of sessionsToProcess) {
+      if (shouldStop.value) break
 
-    try {
-      const result = await window.sessionApi.generateSummary(
-        props.sessionId,
-        session.id,
-        locale.value,
-        false
-      )
+      try {
+        const result = await window.sessionApi.generateSummary(
+          props.sessionId,
+          session.id,
+          locale.value,
+          false
+        )
 
-      if (result.success) {
-        results.value.push({ id: session.id, status: 'success' })
-        // 更新本地会话数据
-        const idx = sessions.value.findIndex((s) => s.id === session.id)
-        if (idx !== -1) {
-          sessions.value[idx].summary = result.summary || ''
+        if (result.success) {
+          // 成功：显示摘要内容
+          results.value.push({
+            id: session.id,
+            status: 'success',
+            summary: result.summary || '',
+          })
+          // 更新本地会话数据
+          const idx = sessions.value.findIndex((s) => s.id === session.id)
+          if (idx !== -1) {
+            sessions.value[idx].summary = result.summary || ''
+          }
+        } else if (result.error && isTooFewMessagesError(result.error)) {
+          // 消息数量太少：标记为跳过
+          results.value.push({
+            id: session.id,
+            status: 'skipped',
+            message: result.error,
+          })
+        } else {
+          // 其他错误：标记为失败
+          results.value.push({
+            id: session.id,
+            status: 'failed',
+            message: result.error,
+          })
         }
-      } else {
-        results.value.push({ id: session.id, status: 'failed', message: result.error })
+      } catch (error) {
+        results.value.push({ id: session.id, status: 'failed', message: String(error) })
       }
-    } catch (error) {
-      results.value.push({ id: session.id, status: 'failed', message: String(error) })
-    }
 
-    currentIndex.value++
+      currentIndex.value++
 
-    // 自动滚动到底部
-    await nextTick()
-    if (resultsContainer.value) {
-      resultsContainer.value.scrollTop = resultsContainer.value.scrollHeight
+      // 自动滚动到底部
+      await nextTick()
+      if (resultsContainer.value) {
+        resultsContainer.value.scrollTop = resultsContainer.value.scrollHeight
+      }
     }
+  } finally {
+    // 确保无论如何都结束生成状态
+    isGenerating.value = false
   }
-
-  isGenerating.value = false
 
   // 如果有成功生成的，通知父组件刷新
   if (stats.value.success > 0) {
@@ -279,13 +362,13 @@ function formatTs(ts: number) {
         <!-- 查询模式切换 -->
         <div class="flex gap-2 border-b border-gray-200 dark:border-gray-700 pb-3">
           <UButton
-            :color="queryMode === 'count' ? 'primary' : 'neutral'"
-            :variant="queryMode === 'count' ? 'solid' : 'ghost'"
+            :color="queryMode === 'range' ? 'primary' : 'neutral'"
+            :variant="queryMode === 'range' ? 'solid' : 'ghost'"
             size="sm"
-            @click="queryMode = 'count'"
+            @click="queryMode = 'range'"
             :disabled="isGenerating"
           >
-            {{ t('chatRecord.batchSummary.byCount', '按数量') }}
+            {{ t('chatRecord.batchSummary.byRange', '按范围') }}
           </UButton>
           <UButton
             :color="queryMode === 'time' ? 'primary' : 'neutral'"
@@ -298,28 +381,37 @@ function formatTs(ts: number) {
           </UButton>
         </div>
 
-        <!-- 按数量选择 -->
-        <div v-if="queryMode === 'count'">
+        <!-- 按范围选择 -->
+        <div v-if="queryMode === 'range'">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            {{ t('chatRecord.batchSummary.selectCount', '选择数量') }}
+            {{ t('chatRecord.batchSummary.selectRange', '选择范围') }}
           </label>
-          <div class="flex flex-wrap gap-2">
-            <UButton
-              v-for="count in [50, 100, 200, 500]"
-              :key="count"
-              :color="selectedCount === count ? 'primary' : 'neutral'"
-              :variant="selectedCount === count ? 'solid' : 'outline'"
-              size="sm"
-              @click="selectedCount = count as CountPreset"
-              :disabled="isGenerating"
-            >
-              {{ t('chatRecord.batchSummary.recent', '最近') }} {{ count }} {{ t('chatRecord.batchSummary.sessions', '次') }}
-            </UButton>
+          <div class="space-y-3">
+            <div class="flex items-center gap-4">
+              <USlider
+                v-model="rangePercent"
+                :min="1"
+                :max="100"
+                :step="1"
+                :disabled="isGenerating"
+                class="flex-1"
+              />
+              <span class="text-lg font-semibold text-primary-600 dark:text-primary-400 min-w-[4rem] text-right">
+                {{ rangePercent }}%
+              </span>
+            </div>
+            <div class="text-xs text-gray-500 flex justify-between">
+              <span>{{ t('chatRecord.batchSummary.rangeStart', '最早') }}</span>
+              <span v-if="totalSessionCount > 0">
+                {{ t('chatRecord.batchSummary.rangeInfo', '约') }} {{ Math.ceil(totalSessionCount * rangePercent / 100) }} / {{ totalSessionCount }} {{ t('chatRecord.batchSummary.sessionsUnit', '个会话') }}
+              </span>
+              <span>{{ t('chatRecord.batchSummary.rangeEnd', '最近') }}</span>
+            </div>
           </div>
         </div>
 
         <!-- 按时间范围选择 -->
-        <div v-else>
+        <div v-else-if="queryMode === 'time'">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             {{ t('chatRecord.batchSummary.timeRange', '选择时间范围') }}
           </label>
@@ -362,23 +454,34 @@ function formatTs(ts: number) {
         </div>
 
         <!-- 会话预览 -->
-        <div v-if="!isLoading" class="text-sm text-gray-600 dark:text-gray-400">
+        <div v-if="!isLoading && !isChecking" class="text-sm text-gray-600 dark:text-gray-400">
           <template v-if="sessions.length > 0">
             <p>
               {{ t('chatRecord.batchSummary.found', '找到') }} {{ sessions.length }} {{ t('chatRecord.batchSummary.sessionsUnit', '个会话') }}
-              <template v-if="existingSummaryCount > 0">
-                <span class="text-green-600 dark:text-green-400">
-                  （{{ existingSummaryCount }} {{ t('chatRecord.batchSummary.existingSkip', '个已有摘要将跳过') }}）
+              <template v-if="existingSummaryCount > 0 || tooFewMessagesCount > 0">
+                <span class="text-gray-500">
+                  （<template v-if="existingSummaryCount > 0">
+                    <span class="text-green-600 dark:text-green-400">{{ existingSummaryCount }} {{ t('chatRecord.batchSummary.hasSummary', '个已有摘要') }}</span>
+                  </template><template v-if="existingSummaryCount > 0 && tooFewMessagesCount > 0">，</template><template v-if="tooFewMessagesCount > 0">
+                    <span class="text-gray-400">{{ tooFewMessagesCount }} {{ t('chatRecord.batchSummary.tooFewMessages', '个消息太少') }}</span>
+                  </template>）
                 </span>
               </template>
             </p>
-            <p v-if="pendingSessions.length > 0" class="mt-1">
+            <p v-if="pendingSessions.length > 0" class="mt-1 font-medium">
               {{ t('chatRecord.batchSummary.pending', '待生成:') }} {{ pendingSessions.length }} {{ t('chatRecord.batchSummary.unit', '个') }}
+            </p>
+            <p v-else class="mt-1 text-gray-400">
+              {{ t('chatRecord.batchSummary.noPending', '没有可生成的会话') }}
             </p>
           </template>
           <p v-else class="text-gray-400">
             {{ t('chatRecord.batchSummary.noSessions', '该时间范围内没有会话') }}
           </p>
+        </div>
+        <div v-else-if="isChecking" class="flex items-center gap-2 text-sm text-gray-500">
+          <UIcon name="i-heroicons-arrow-path" class="animate-spin" />
+          {{ t('chatRecord.batchSummary.checking', '检查中...') }}
         </div>
         <div v-else class="flex items-center gap-2 text-sm text-gray-500">
           <UIcon name="i-heroicons-arrow-path" class="animate-spin" />
@@ -391,49 +494,64 @@ function formatTs(ts: number) {
             <span>{{ t('chatRecord.batchSummary.progress', '进度') }}</span>
             <span>{{ currentIndex }} / {{ totalToGenerate || pendingSessions.length }}</span>
           </div>
-          <UProgress :value="progressPercent" />
+          <!-- 进行中：显示动画进度条 -->
+          <UProgress v-if="isGenerating" :value="progressPercent" />
+          <!-- 已完成：显示静态完成条 -->
+          <div v-else class="h-2 w-full rounded-full bg-green-500" />
         </div>
 
         <!-- 结果列表 -->
         <div
           v-if="results.length > 0"
           ref="resultsContainer"
-          class="max-h-48 overflow-y-auto rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
+          class="max-h-64 overflow-y-auto rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
         >
           <div
             v-for="result in results"
             :key="result.id"
-            class="flex items-center gap-2 px-3 py-2 text-sm border-b border-gray-200 dark:border-gray-700 last:border-b-0"
+            class="flex flex-col gap-1 px-3 py-2 text-sm border-b border-gray-200 dark:border-gray-700 last:border-b-0"
           >
-            <UIcon
-              :name="result.status === 'success' ? 'i-heroicons-check-circle' : result.status === 'skipped' ? 'i-heroicons-minus-circle' : 'i-heroicons-x-circle'"
-              :class="{
-                'text-green-500': result.status === 'success',
-                'text-gray-400': result.status === 'skipped',
-                'text-red-500': result.status === 'failed',
-              }"
-            />
-            <span class="flex-1">
-              {{ t('chatRecord.batchSummary.session', '会话') }} #{{ result.id }}
-              <span v-if="result.status === 'failed' && result.message" class="text-red-500 text-xs ml-1">
-                ({{ result.message }})
+            <!-- 第一行：状态图标 + 会话ID + 状态文字 -->
+            <div class="flex items-center gap-2">
+              <UIcon
+                :name="result.status === 'success' ? 'i-heroicons-check-circle' : result.status === 'skipped' ? 'i-heroicons-minus-circle' : 'i-heroicons-x-circle'"
+                class="flex-shrink-0"
+                :class="{
+                  'text-green-500': result.status === 'success',
+                  'text-gray-400': result.status === 'skipped',
+                  'text-red-500': result.status === 'failed',
+                }"
+              />
+              <span class="flex-1 font-medium">
+                {{ t('chatRecord.batchSummary.session', '会话') }} #{{ result.id }}
               </span>
-            </span>
-            <span
-              :class="{
-                'text-green-600 dark:text-green-400': result.status === 'success',
-                'text-gray-500': result.status === 'skipped',
-                'text-red-600 dark:text-red-400': result.status === 'failed',
-              }"
-            >
-              {{
-                result.status === 'success'
-                  ? t('chatRecord.batchSummary.statusSuccess', '成功')
-                  : result.status === 'skipped'
-                    ? t('chatRecord.batchSummary.statusSkipped', '跳过')
-                    : t('chatRecord.batchSummary.statusFailed', '失败')
-              }}
-            </span>
+              <span
+                class="flex-shrink-0 text-xs"
+                :class="{
+                  'text-green-600 dark:text-green-400': result.status === 'success',
+                  'text-gray-500': result.status === 'skipped',
+                  'text-red-600 dark:text-red-400': result.status === 'failed',
+                }"
+              >
+                {{
+                  result.status === 'success'
+                    ? t('chatRecord.batchSummary.statusSuccess', '成功')
+                    : result.status === 'skipped'
+                      ? t('chatRecord.batchSummary.statusSkipped', '跳过')
+                      : t('chatRecord.batchSummary.statusFailed', '失败')
+                }}
+              </span>
+            </div>
+            <!-- 第二行：摘要内容或错误信息 -->
+            <div v-if="result.summary" class="pl-6 text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+              {{ result.summary }}
+            </div>
+            <div v-else-if="result.status === 'failed' && result.message" class="pl-6 text-xs text-red-500">
+              {{ result.message }}
+            </div>
+            <div v-else-if="result.status === 'skipped'" class="pl-6 text-xs text-gray-400 italic">
+              {{ t('chatRecord.batchSummary.tooFewMessages', '消息数量太少') }}
+            </div>
           </div>
         </div>
 

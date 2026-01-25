@@ -454,3 +454,44 @@ export async function generateSessionSummaries(
   return { success, failed, skipped }
 }
 
+/**
+ * 批量检查会话是否可以生成摘要
+ *
+ * @param dbSessionId 数据库会话ID
+ * @param chatSessionIds 会话ID列表
+ * @returns 每个会话的检查结果
+ */
+export function checkSessionsCanGenerateSummary(
+  dbSessionId: string,
+  chatSessionIds: number[]
+): Map<number, { canGenerate: boolean; reason?: string }> {
+  const results = new Map<number, { canGenerate: boolean; reason?: string }>()
+
+  for (const chatSessionId of chatSessionIds) {
+    // 获取会话消息
+    const sessionData = getSessionMessagesForSummary(dbSessionId, chatSessionId)
+
+    if (!sessionData) {
+      results.set(chatSessionId, { canGenerate: false, reason: '会话不存在' })
+      continue
+    }
+
+    // 检查原始消息数量
+    if (sessionData.messageCount < MIN_MESSAGE_COUNT) {
+      results.set(chatSessionId, { canGenerate: false, reason: '消息太少' })
+      continue
+    }
+
+    // 预处理：过滤无意义消息
+    const validMessages = preprocessMessages(sessionData.messages)
+    if (validMessages.length < MIN_MESSAGE_COUNT) {
+      results.set(chatSessionId, { canGenerate: false, reason: '有效消息太少' })
+      continue
+    }
+
+    results.set(chatSessionId, { canGenerate: true })
+  }
+
+  return results
+}
+

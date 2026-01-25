@@ -1360,6 +1360,16 @@ const sessionApi = {
   },
 
   /**
+   * 批量检查会话是否可以生成摘要
+   */
+  checkCanGenerateSummary: (
+    dbSessionId: string,
+    chatSessionIds: number[]
+  ): Promise<Record<number, { canGenerate: boolean; reason?: string }>> => {
+    return ipcRenderer.invoke('session:checkCanGenerateSummary', dbSessionId, chatSessionIds)
+  },
+
+  /**
    * 根据时间范围查询会话列表
    */
   getByTimeRange: (

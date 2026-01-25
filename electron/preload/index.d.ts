@@ -667,6 +667,11 @@ interface SessionApi {
     chatSessionIds: number[],
     locale?: string
   ) => Promise<{ success: number; failed: number; skipped: number }>
+  /** 批量检查会话是否可以生成摘要 */
+  checkCanGenerateSummary: (
+    dbSessionId: string,
+    chatSessionIds: number[]
+  ) => Promise<Record<number, { canGenerate: boolean; reason?: string }>>
   /** 根据时间范围查询会话列表 */
   getByTimeRange: (
     dbSessionId: string,

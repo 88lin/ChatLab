@@ -784,6 +784,28 @@ export function registerChatHandlers(ctx: IpcContext): void {
   )
 
   /**
+   * 批量检查会话是否可以生成摘要
+   */
+  ipcMain.handle(
+    'session:checkCanGenerateSummary',
+    async (_, dbSessionId: string, chatSessionIds: number[]) => {
+      try {
+        const { checkSessionsCanGenerateSummary } = await import('../ai/summary')
+        const results = checkSessionsCanGenerateSummary(dbSessionId, chatSessionIds)
+        // 将 Map 转换为普通对象以便 IPC 传输
+        const obj: Record<number, { canGenerate: boolean; reason?: string }> = {}
+        for (const [id, result] of results) {
+          obj[id] = result
+        }
+        return obj
+      } catch (error) {
+        console.error('批量检查会话摘要失败：', error)
+        return {}
+      }
+    }
+  )
+
+  /**
    * 根据时间范围查询会话列表
    */
   ipcMain.handle(
@@ -814,10 +836,10 @@ export function registerChatHandlers(ctx: IpcContext): void {
         const sessions = db
           .prepare(
             `
-            SELECT 
-              id, 
-              start_ts as startTs, 
-              end_ts as endTs, 
+            SELECT
+              id,
+              start_ts as startTs,
+              end_ts as endTs,
               message_count as messageCount,
               summary
             FROM chat_session
@@ -866,10 +888,10 @@ export function registerChatHandlers(ctx: IpcContext): void {
       const sessions = db
         .prepare(
           `
-          SELECT 
-            id, 
-            start_ts as startTs, 
-            end_ts as endTs, 
+          SELECT
+            id,
+            start_ts as startTs,
+            end_ts as endTs,
             message_count as messageCount,
             summary
           FROM chat_session
