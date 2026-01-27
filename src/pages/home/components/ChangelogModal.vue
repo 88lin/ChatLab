@@ -194,8 +194,14 @@ async function checkNewVersion() {
     if (!result.success || !result.data) return
 
     const data = result.data as ChangelogItem[]
-    const latestChangelogVersion = data[0]?.version
+    const latestChangelogVersion = normalizeVersion(data[0]?.version)
     if (!latestChangelogVersion) return
+
+    // 仅当“当前版本就是最新版本”时才弹窗
+    // 避免当前版本较旧时（存在更高版本日志）也弹出阅读
+    if (currentVersion !== latestChangelogVersion) {
+      return
+    }
 
     // 5. 在 changelog 中查找当前软件版本
     const currentVersionExists = data.some((log) => normalizeVersion(log.version) === currentVersion)
