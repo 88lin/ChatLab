@@ -1,5 +1,34 @@
 [
   {
+    "version": "0.10.0",
+    "date": "2026-02-11",
+    "summary": "Add interaction frequency analysis, improve the session query pipeline, and fix issues in incremental indexing and database scanning.",
+    "changes": [
+      {
+        "type": "feat",
+        "items": [
+          "Add an interaction frequency analysis view to make member interaction trends easier to understand.",
+          "Improve session query logic and processing flow."
+        ]
+      },
+      {
+        "type": "fix",
+        "items": [
+          "Fix inaccurate session index generation scope after incremental updates (fix #79).",
+          "Fix non-chat SQLite files being incorrectly processed during migration and session scanning."
+        ]
+      },
+      {
+        "type": "refactor",
+        "items": ["Refactor the session query module to improve maintainability."]
+      },
+      {
+        "type": "chore",
+        "items": ["Remove transformers-related dependencies and update project configuration."]
+      }
+    ]
+  },
+  {
     "version": "0.9.4",
     "date": "2026-02-08",
     "summary": "Improved time filtering and AI configuration UX, added local API key encryption, and fixed LINE chat log parsing.",
