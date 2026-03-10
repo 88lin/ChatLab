@@ -13,7 +13,7 @@ const schema = Type.Object({
   ...timeParamProperties,
 })
 
-/** 获取两个群成员之间的对话记录。适用于回答"A和B之间聊了什么"、"查看两人的对话"等问题。需要先通过 get_group_members 获取成员 ID。支持精确到分钟级别的时间查询。 */
+/** 获取两个群成员之间的对话记录。适用于回答"A和B之间聊了什么"、"查看两人的对话"等问题。需要先通过 get_members 获取成员 ID。支持精确到分钟级别的时间查询。 */
 export function createTool(context: ToolContext): AgentTool<typeof schema> {
   return {
     name: 'get_conversation_between',

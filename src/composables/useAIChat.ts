@@ -97,12 +97,8 @@ export function useAIChat(
   const assistantStore = useAssistantStore()
   const { activePreset, aiGlobalSettings } = storeToRefs(promptStore)
 
-  // 获取当前聊天类型对应的提示词配置（使用统一的激活预设）
   const currentPromptConfig = computed(() => {
-    return {
-      roleDefinition: activePreset.value.roleDefinition,
-      responseRules: activePreset.value.responseRules,
-    }
+    return { systemPrompt: activePreset.value.systemPrompt }
   })
 
   // 状态
@@ -540,10 +536,7 @@ export function useAIChat(
         chatType,
         currentAssistantId
           ? undefined
-          : {
-              roleDefinition: currentPromptConfig.value.roleDefinition,
-              responseRules: currentPromptConfig.value.responseRules,
-            },
+          : { systemPrompt: currentPromptConfig.value.systemPrompt },
         locale,
         maxHistoryRounds,
         currentAssistantId

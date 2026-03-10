@@ -35,11 +35,11 @@ const SQL_TOOL_DEFS: CustomSqlToolDef[] = [
   {
     name: 'peak_chat_hours_by_member',
     description:
-      '分析指定成员在近 N 天内每小时的发言量分布，找出其最活跃的时段。需要先通过 get_group_members 获取 member_id。',
+      '分析指定成员在近 N 天内每小时的发言量分布，找出其最活跃的时段。需要先通过 get_members 获取 member_id。',
     parameters: {
       type: 'object',
       properties: {
-        member_id: { type: 'number', description: '成员 ID（通过 get_group_members 获取）' },
+        member_id: { type: 'number', description: '成员 ID（通过 get_members 获取）' },
         days: { type: 'number', description: '统计最近多少天的数据', default: 30 },
       },
       required: ['member_id'],
@@ -58,11 +58,11 @@ const SQL_TOOL_DEFS: CustomSqlToolDef[] = [
   {
     name: 'member_activity_trend',
     description:
-      '查看指定成员近 N 天的每日发言数量变化趋势。适用于观察某人是否变得更活跃或更沉默。需要先通过 get_group_members 获取 member_id。',
+      '查看指定成员近 N 天的每日发言数量变化趋势。适用于观察某人是否变得更活跃或更沉默。需要先通过 get_members 获取 member_id。',
     parameters: {
       type: 'object',
       properties: {
-        member_id: { type: 'number', description: '成员 ID（通过 get_group_members 获取）' },
+        member_id: { type: 'number', description: '成员 ID（通过 get_members 获取）' },
         days: { type: 'number', description: '查看最近多少天的趋势' },
       },
       required: ['member_id', 'days'],

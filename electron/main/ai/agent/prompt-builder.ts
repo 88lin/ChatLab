@@ -64,15 +64,13 @@ function getFallbackRoleDefinition(chatType: 'group' | 'private', locale: string
   return agentT(`ai.agent.fallbackRoleDefinition.${chatType}`, locale)
 }
 
-function getFallbackResponseRules(locale: string = 'zh-CN'): string {
-  return agentT('ai.agent.fallbackResponseRules', locale)
-}
-
 /**
  * 构建完整的系统提示词
  *
  * 提示词配置主要来自前端 src/config/prompts.ts，通过 promptConfig 参数传递。
  * Fallback 仅在前端未传递配置时使用。
+ *
+ * 最终格式：{用户系统提示词}\n\n{系统锁定段(日期/owner/时间参数/通用指引)}
  */
 export function buildSystemPrompt(
   chatType: 'group' | 'private' = 'group',
@@ -80,14 +78,10 @@ export function buildSystemPrompt(
   ownerInfo?: OwnerInfo,
   locale: string = 'zh-CN'
 ): string {
-  const roleDefinition = promptConfig?.roleDefinition || getFallbackRoleDefinition(chatType, locale)
-  const responseRules = promptConfig?.responseRules || getFallbackResponseRules(locale)
+  const systemPrompt = promptConfig?.systemPrompt || getFallbackRoleDefinition(chatType, locale)
   const lockedSection = getLockedPromptSection(chatType, ownerInfo, locale)
 
-  return `${roleDefinition}
+  return `${systemPrompt}
 
-${lockedSection}
-
-${agentT('ai.agent.responseRulesTitle', locale)}
-${responseRules}`
+${lockedSection}`
 }

@@ -58,7 +58,6 @@ interface ToolForm {
 const form = ref({
   name: '',
   systemPrompt: '',
-  responseRules: '',
   presetQuestions: [] as string[],
   applicableChatType: '' as string,
   supportedLocales: [] as string[],
@@ -146,7 +145,6 @@ function initEmptyForm() {
     id: '',
     name: '',
     systemPrompt: '',
-    responseRules: '',
     presetQuestions: [],
     allowedBuiltinTools: [],
     customSqlTools: [],
@@ -158,7 +156,6 @@ function initEmptyForm() {
   form.value = {
     name: '',
     systemPrompt: '',
-    responseRules: '',
     presetQuestions: [],
     applicableChatType: '',
     supportedLocales: [],
@@ -177,7 +174,6 @@ async function loadConfig(id: string) {
       form.value = {
         name: config.value.name,
         systemPrompt: config.value.systemPrompt,
-        responseRules: config.value.responseRules || '',
         presetQuestions: [...config.value.presetQuestions],
         applicableChatType: config.value.applicableChatTypes?.[0] || '',
         supportedLocales: [...(config.value.supportedLocales || [])],
@@ -202,7 +198,6 @@ async function handleSave() {
     const payload = {
       name: form.value.name,
       systemPrompt: form.value.systemPrompt,
-      responseRules: form.value.responseRules,
       presetQuestions: [...form.value.presetQuestions],
       applicableChatTypes: form.value.applicableChatType
         ? ([form.value.applicableChatType] as ('group' | 'private')[])
@@ -424,19 +419,6 @@ function closeModal() {
                 <UTextarea
                   v-model="form.systemPrompt"
                   :rows="5"
-                  autoresize
-                  class="w-full font-mono text-sm"
-                  :disabled="readonly"
-                />
-              </div>
-
-              <div>
-                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('ai.assistant.config.responseRules') }}
-                </label>
-                <UTextarea
-                  v-model="form.responseRules"
-                  :rows="4"
                   autoresize
                   class="w-full font-mono text-sm"
                   :disabled="readonly"

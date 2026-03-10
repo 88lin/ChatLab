@@ -78,8 +78,7 @@ async function loadRemotePresets() {
 async function handlePreview(preset: RemotePresetData) {
   previewError.value = ''
 
-  // 如果已有内容，直接显示
-  if (preset.roleDefinition && preset.responseRules) {
+  if (preset.systemPrompt) {
     previewPreset.value = preset
     return
   }
@@ -112,9 +111,8 @@ function closePreview() {
 async function handleAddPreset(preset: RemotePresetData) {
   addingPresetId.value = preset.id
 
-  // 如果还没有内容，先下载
   let fullPreset = preset
-  if (!preset.roleDefinition || !preset.responseRules) {
+  if (!preset.systemPrompt) {
     const fetched = await promptStore.fetchPresetContent(preset)
     if (!fetched) {
       addingPresetId.value = null
@@ -282,24 +280,14 @@ watch(
         </div>
 
         <!-- 内容 -->
-        <div v-else-if="previewPreset?.roleDefinition" class="max-h-[60vh] overflow-y-auto space-y-4">
+        <div v-else-if="previewPreset?.systemPrompt" class="max-h-[60vh] overflow-y-auto space-y-4">
           <div>
             <p class="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-              {{ t('settings.aiPrompt.importPreset.roleDefinition') }}
+              {{ t('settings.aiPrompt.importPreset.systemPrompt') }}
             </p>
             <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
               <p class="whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-400">
-                {{ previewPreset.roleDefinition }}
-              </p>
-            </div>
-          </div>
-          <div>
-            <p class="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-              {{ t('settings.aiPrompt.importPreset.responseRules') }}
-            </p>
-            <div class="rounded-lg bg-gray-50 p-3 dark:bg-gray-800">
-              <p class="whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-400">
-                {{ previewPreset.responseRules }}
+                {{ previewPreset.systemPrompt }}
               </p>
             </div>
           </div>

@@ -3,8 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PromptPreset, PresetApplicableType } from '@/types/ai'
 import {
-  getDefaultRoleDefinition,
-  getDefaultResponseRules,
+  getDefaultSystemPrompt,
   getLockedPromptSectionPreview,
   getOriginalBuiltinPreset,
   type LocaleType,
@@ -13,32 +12,26 @@ import { usePromptStore } from '@/stores/prompt'
 
 const { t, locale } = useI18n()
 
-// Props
 const props = defineProps<{
   open: boolean
   mode: 'add' | 'edit'
   preset: PromptPreset | null
 }>()
 
-// Emits
 const emit = defineEmits<{
   'update:open': [value: boolean]
   saved: []
 }>()
 
-// Store
 const promptStore = usePromptStore()
 
-// 表单数据
 const formData = ref({
   name: '',
-  roleDefinition: '',
-  responseRules: '',
+  systemPrompt: '',
   supportGroup: true,
   supportPrivate: true,
 })
 
-// 计算属性
 const isBuiltIn = computed(() => props.preset?.isBuiltIn ?? false)
 const isEditMode = computed(() => props.mode === 'edit')
 const isModified = computed(() => {
@@ -52,12 +45,9 @@ const modalTitle = computed(() => {
 })
 
 const canSave = computed(() => {
-  return formData.value.name.trim() && formData.value.roleDefinition.trim() && formData.value.responseRules.trim()
+  return formData.value.name.trim() && formData.value.systemPrompt.trim()
 })
 
-/**
- * 将 applicableTo 转换为勾选状态
- */
 function applicableToCheckboxes(applicableTo?: PresetApplicableType): { group: boolean; private: boolean } {
   if (!applicableTo || applicableTo === 'common') {
     return { group: true, private: true }
@@ -68,37 +58,29 @@ function applicableToCheckboxes(applicableTo?: PresetApplicableType): { group: b
   }
 }
 
-/**
- * 将勾选状态转换为 applicableTo
- */
 function checkboxesToApplicableTo(group: boolean, private_: boolean): PresetApplicableType {
   if (group && private_) return 'common'
   if (group) return 'group'
   if (private_) return 'private'
-  return 'common' // 默认全选
+  return 'common'
 }
 
-// 监听打开状态，初始化表单
 watch(
   () => props.open,
   (newVal) => {
     if (newVal) {
       if (props.preset) {
-        // 编辑模式：加载现有预设
         const checkboxes = applicableToCheckboxes(props.preset.applicableTo)
         formData.value = {
           name: props.preset.name,
-          roleDefinition: props.preset.roleDefinition,
-          responseRules: props.preset.responseRules,
+          systemPrompt: props.preset.systemPrompt,
           supportGroup: checkboxes.group,
           supportPrivate: checkboxes.private,
         }
       } else {
-        // 添加模式：重置为默认
         formData.value = {
           name: '',
-          roleDefinition: getDefaultRoleDefinition(locale.value as LocaleType),
-          responseRules: getDefaultResponseRules(locale.value as LocaleType),
+          systemPrompt: getDefaultSystemPrompt(locale.value as LocaleType),
           supportGroup: true,
           supportPrivate: true,
         }
@@ -107,40 +89,32 @@ watch(
   }
 )
 
-/** 关闭弹窗 */
 function closeModal() {
   emit('update:open', false)
 }
 
-/** 保存提示词预设 */
 function handleSave() {
   if (!canSave.value) return
 
   const applicableTo = checkboxesToApplicableTo(formData.value.supportGroup, formData.value.supportPrivate)
 
   if (isEditMode.value && props.preset) {
-    // 更新现有预设（支持内置和自定义）
     const updates: {
       name: string
-      roleDefinition: string
-      responseRules: string
+      systemPrompt: string
       applicableTo?: PresetApplicableType
     } = {
       name: formData.value.name.trim(),
-      roleDefinition: formData.value.roleDefinition.trim(),
-      responseRules: formData.value.responseRules.trim(),
+      systemPrompt: formData.value.systemPrompt.trim(),
     }
-    // 内置预设不更新 applicableTo
     if (!isBuiltIn.value) {
       updates.applicableTo = applicableTo
     }
     promptStore.updatePromptPreset(props.preset.id, updates)
   } else {
-    // 添加新预设
     promptStore.addPromptPreset({
       name: formData.value.name.trim(),
-      roleDefinition: formData.value.roleDefinition.trim(),
-      responseRules: formData.value.responseRules.trim(),
+      systemPrompt: formData.value.systemPrompt.trim(),
       applicableTo,
     })
   }
@@ -149,38 +123,26 @@ function handleSave() {
   closeModal()
 }
 
-/** 重置内置预设为原始值 */
 function handleReset() {
   if (!props.preset || !isBuiltIn.value) return
 
   const original = getOriginalBuiltinPreset(props.preset.id, locale.value as LocaleType)
   if (original) {
-    // 重置表单为原始值
     formData.value = {
       name: original.name,
-      roleDefinition: original.roleDefinition,
-      responseRules: original.responseRules,
+      systemPrompt: original.systemPrompt,
       supportGroup: true,
       supportPrivate: true,
     }
-    // 清除覆盖
     promptStore.resetBuiltinPreset(props.preset.id)
   }
 }
 
-// 完整提示词预览（使用群聊模式作为示例）
 const previewContent = computed(() => {
-  // 获取锁定的系统部分（用于预览，默认使用群聊模式）
   const lockedSection = getLockedPromptSectionPreview('group', undefined, locale.value as LocaleType)
+  return `${formData.value.systemPrompt}
 
-  // 组合完整提示词
-  const responseRulesLabel = locale.value === 'zh-CN' ? '回答要求：' : 'Response requirements:'
-  return `${formData.value.roleDefinition}
-
-${lockedSection}
-
-${responseRulesLabel}
-${formData.value.responseRules}`
+${lockedSection}`
 })
 </script>
 
@@ -238,29 +200,15 @@ ${formData.value.responseRules}`
             </div>
           </div>
 
-          <!-- 角色定义 -->
+          <!-- 系统提示词 -->
           <div>
             <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t('settings.aiPrompt.modal.roleDefinition') }}
+              {{ t('settings.aiPrompt.modal.systemPrompt') }}
             </label>
             <UTextarea
-              v-model="formData.roleDefinition"
-              :rows="8"
-              :placeholder="t('settings.aiPrompt.modal.roleDefinitionPlaceholder')"
-              class="w-120 font-mono text-sm"
-            />
-          </div>
-
-          <!-- 回答要求 -->
-          <div>
-            <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              {{ t('settings.aiPrompt.modal.responseRules') }}
-              <span class="font-normal text-gray-500">{{ t('settings.aiPrompt.modal.responseRulesHint') }}</span>
-            </label>
-            <UTextarea
-              v-model="formData.responseRules"
-              :rows="5"
-              :placeholder="t('settings.aiPrompt.modal.responseRulesPlaceholder')"
+              v-model="formData.systemPrompt"
+              :rows="12"
+              :placeholder="t('settings.aiPrompt.modal.systemPromptPlaceholder')"
               class="w-120 font-mono text-sm"
             />
           </div>
@@ -280,7 +228,6 @@ ${formData.value.responseRules}`
 
         <!-- Footer -->
         <div class="mt-6 flex justify-end gap-2">
-          <!-- 内置预设：显示重置按钮 -->
           <UButton v-if="isBuiltIn && isModified" variant="outline" color="warning" @click="handleReset">
             <UIcon name="i-heroicons-arrow-path" class="mr-1 h-4 w-4" />
             {{ t('settings.aiPrompt.modal.resetToDefault') }}

@@ -80,12 +80,8 @@ export class Agent {
 
     const maxToolRounds = Math.max(0, this.config.maxToolRounds ?? 0)
 
-    // 当有 AssistantConfig 时，将其 systemPrompt/responseRules 映射为 PromptConfig
     const effectivePromptConfig: PromptConfig | undefined = this.assistantConfig
-      ? {
-          roleDefinition: this.assistantConfig.systemPrompt,
-          responseRules: this.assistantConfig.responseRules || '',
-        }
+      ? { systemPrompt: this.assistantConfig.systemPrompt }
       : this.promptConfig
 
     const systemPrompt = buildSystemPrompt(this.chatType, effectivePromptConfig, this.context.ownerInfo, this.locale)

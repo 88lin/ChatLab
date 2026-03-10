@@ -22,7 +22,6 @@ export interface AssistantConfigFull {
   id: string
   name: string
   systemPrompt: string
-  responseRules?: string
   presetQuestions: string[]
   allowedBuiltinTools?: string[]
   customSqlTools?: unknown[]

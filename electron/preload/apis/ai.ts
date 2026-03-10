@@ -176,8 +176,7 @@ export interface EmbeddingServiceConfigDisplay {
 
 // 用户自定义提示词配置
 export interface PromptConfig {
-  roleDefinition: string
-  responseRules: string
+  systemPrompt: string
 }
 
 // ==================== AI API ====================
@@ -679,7 +678,6 @@ export interface AssistantConfigFull {
   id: string
   name: string
   systemPrompt: string
-  responseRules?: string
   presetQuestions: string[]
   allowedBuiltinTools?: string[]
   customSqlTools?: unknown[]

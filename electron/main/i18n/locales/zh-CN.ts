@@ -57,7 +57,7 @@ export default {
         desc: '根据关键词搜索群聊记录。适用于用户想要查找特定话题、关键词相关的聊天内容。可以指定时间范围和发送者来筛选消息。支持精确到分钟级别的时间查询。',
         params: {
           keywords: '搜索关键词列表，会用 OR 逻辑匹配包含任一关键词的消息。如果只需要按发送者筛选，可以传空数组 []',
-          sender_id: '发送者的成员 ID，用于筛选特定成员发送的消息。可以通过 get_group_members 工具获取成员 ID',
+          sender_id: '发送者的成员 ID，用于筛选特定成员发送的消息。可以通过 get_members 工具获取成员 ID',
           limit: '返回消息数量限制，默认 1000，最大 50000',
           year: '筛选指定年份的消息，如 2024',
           month: '筛选指定月份的消息（1-12），需要配合 year 使用',
@@ -91,7 +91,7 @@ export default {
           type: '统计类型：hourly（按小时）、weekday（按星期）、daily（按日期）',
         },
       },
-      get_group_members: {
+      get_members: {
         desc: '获取群成员列表，包括成员的基本信息、别名和消息统计。适用于查询"群里有哪些人"、"某人的别名是什么"、"谁的QQ号是xxx"等问题。',
         params: {
           search: '可选的搜索关键词，用于筛选成员昵称、别名或QQ号',
@@ -99,13 +99,13 @@ export default {
         },
       },
       get_member_name_history: {
-        desc: '获取成员的昵称变更历史记录。适用于回答"某人以前叫什么名字"、"某人的昵称变化"、"某人曾用名"等问题。需要先通过 get_group_members 工具获取成员 ID。',
+        desc: '获取成员的昵称变更历史记录。适用于回答"某人以前叫什么名字"、"某人的昵称变化"、"某人曾用名"等问题。需要先通过 get_members 工具获取成员 ID。',
         params: {
-          member_id: '成员的数据库 ID，可以通过 get_group_members 工具获取',
+          member_id: '成员的数据库 ID，可以通过 get_members 工具获取',
         },
       },
       get_conversation_between: {
-        desc: '获取两个群成员之间的对话记录。适用于回答"A和B之间聊了什么"、"查看两人的对话"等问题。需要先通过 get_group_members 获取成员 ID。支持精确到分钟级别的时间查询。',
+        desc: '获取两个群成员之间的对话记录。适用于回答"A和B之间聊了什么"、"查看两人的对话"等问题。需要先通过 get_members 获取成员 ID。支持精确到分钟级别的时间查询。',
         params: {
           member_id_1: '第一个成员的数据库 ID',
           member_id_2: '第二个成员的数据库 ID',
@@ -196,9 +196,9 @@ export default {
         fallback: '该时间范围内没有消息记录',
       },
       peak_chat_hours_by_member: {
-        desc: '分析指定成员在近 N 天内每小时的发言量分布，找出其最活跃的时段。需要先通过 get_group_members 获取 member_id。',
+        desc: '分析指定成员在近 N 天内每小时的发言量分布，找出其最活跃的时段。需要先通过 get_members 获取 member_id。',
         params: {
-          member_id: '成员 ID（通过 get_group_members 获取）',
+          member_id: '成员 ID（通过 get_members 获取）',
           days: '统计最近多少天的数据',
         },
         rowTemplate: '{hour}:00 — {msg_count} 条消息',
@@ -206,9 +206,9 @@ export default {
         fallback: '该成员在指定时间范围内没有发言记录',
       },
       member_activity_trend: {
-        desc: '查看指定成员近 N 天的每日发言数量变化趋势。适用于观察某人是否变得更活跃或更沉默。需要先通过 get_group_members 获取 member_id。',
+        desc: '查看指定成员近 N 天的每日发言数量变化趋势。适用于观察某人是否变得更活跃或更沉默。需要先通过 get_members 获取 member_id。',
         params: {
-          member_id: '成员 ID（通过 get_group_members 获取）',
+          member_id: '成员 ID（通过 get_members 获取）',
           days: '查看最近多少天的趋势',
         },
         rowTemplate: '{day}：{msg_count} 条',
@@ -287,12 +287,12 @@ export default {
 `,
       memberNotePrivate: `成员查询策略：
 - 私聊只有两个人，可以直接获取成员列表
-- 当用户提到"对方"、"他/她"时，通过 get_group_members 获取另一方信息
+- 当用户提到"对方"、"他/她"时，通过 get_members 获取另一方信息
 `,
       memberNoteGroup: `成员查询策略：
-- 当用户提到特定群成员（如"张三说过什么"、"小明的发言"等）时，应先调用 get_group_members 获取成员列表
+- 当用户提到特定群成员（如"张三说过什么"、"小明的发言"等）时，应先调用 get_members 获取成员列表
 - 群成员有三种名称：accountName（原始昵称）、groupNickname（群昵称）、aliases（用户自定义别名）
-- 通过 get_group_members 的 search 参数可以模糊搜索这三种名称
+- 通过 get_members 的 search 参数可以模糊搜索这三种名称
 - 找到成员后，使用其 id 字段作为 search_messages 的 sender_id 参数来获取该成员的发言
 `,
       timeParamsIntro: '时间参数：按用户提到的精度组合 year/month/day/hour',
@@ -301,18 +301,26 @@ export default {
       timeParamExample3: '"10月1号下午3点" → year: {{year}}, month: 10, day: 1, hour: 15',
       defaultYearNote: '未指定年份默认{{year}}年，若该月份未到则用{{prevYear}}年',
       responseInstruction: '根据用户的问题，选择合适的工具获取数据，然后基于数据给出回答。',
-      responseRulesTitle: '回答要求：',
       fallbackRoleDefinition: {
         group: `你是一个专业但风格轻松的群聊记录分析助手。
-你的任务是帮助用户理解和分析他们的群聊记录数据，同时可以适度使用 B 站/网络热梗和表情/颜文字活跃气氛，但不影响结论的准确性。`,
-        private: `你是一个专业但风格轻松的私聊记录分析助手。
-你的任务是帮助用户理解和分析他们的私聊记录数据，同时可以适度使用 B 站/网络热梗和表情/颜文字活跃气氛，但不影响结论的准确性。`,
-      },
-      fallbackResponseRules: `1. 基于工具返回的数据回答，不要编造信息
+你的任务是帮助用户理解和分析他们的群聊记录数据，同时可以适度使用 B 站/网络热梗和表情/颜文字活跃气氛，但不影响结论的准确性。
+
+## 回答要求
+1. 基于工具返回的数据回答，不要编造信息
 2. 如果数据不足以回答问题，请说明
 3. 回答要简洁明了，使用 Markdown 格式
 4. 可以适度加入 B 站/网络热梗、表情/颜文字（强度适中）
 5. 玩梗不得影响事实准确与结论清晰，避免低俗或冒犯性表达`,
+        private: `你是一个专业但风格轻松的私聊记录分析助手。
+你的任务是帮助用户理解和分析他们的私聊记录数据，同时可以适度使用 B 站/网络热梗和表情/颜文字活跃气氛，但不影响结论的准确性。
+
+## 回答要求
+1. 基于工具返回的数据回答，不要编造信息
+2. 如果数据不足以回答问题，请说明
+3. 回答要简洁明了，使用 Markdown 格式
+4. 可以适度加入 B 站/网络热梗、表情/颜文字（强度适中）
+5. 玩梗不得影响事实准确与结论清晰，避免低俗或冒犯性表达`,
+      },
     },
   },
 

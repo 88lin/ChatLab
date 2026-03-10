@@ -18,10 +18,8 @@ export interface AssistantConfig {
   /** 助手显示名称 */
   name: string
 
-  /** 系统提示词（替代旧的 PromptConfig.roleDefinition） */
+  /** 系统提示词（角色定义 + 回答要求，统一为单一字段） */
   systemPrompt: string
-  /** 回答要求（替代旧的 PromptConfig.responseRules，可选） */
-  responseRules?: string
 
   /** 预设问题列表（前端展示，用户可点击直接发送） */
   presetQuestions: string[]

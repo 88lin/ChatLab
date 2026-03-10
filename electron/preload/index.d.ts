@@ -659,8 +659,7 @@ interface ToolContext {
 
 // 用户自定义提示词配置
 interface PromptConfig {
-  roleDefinition: string
-  responseRules: string
+  systemPrompt: string
 }
 
 interface AgentApi {
@@ -694,7 +693,6 @@ interface AssistantConfigFull {
   id: string
   name: string
   systemPrompt: string
-  responseRules?: string
   presetQuestions: string[]
   allowedBuiltinTools?: string[]
   customSqlTools?: unknown[]

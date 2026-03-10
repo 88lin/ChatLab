@@ -64,8 +64,6 @@ export interface AgentResult {
  * 用户自定义提示词配置
  */
 export interface PromptConfig {
-  /** 角色定义（可编辑区） */
-  roleDefinition: string
-  /** 回答要求（可编辑区） */
-  responseRules: string
+  /** 系统提示词（角色定义 + 回答要求，统一为单一字段） */
+  systemPrompt: string
 }

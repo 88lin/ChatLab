@@ -8,7 +8,7 @@ const schema = Type.Object({
   member_id: Type.Number({ description: 'ai.tools.get_member_name_history.params.member_id' }),
 })
 
-/** 获取成员的昵称变更历史记录。适用于回答"某人以前叫什么名字"、"某人的昵称变化"、"某人曾用名"等问题。需要先通过 get_group_members 工具获取成员 ID。 */
+/** 获取成员的昵称变更历史记录。适用于回答"某人以前叫什么名字"、"某人的昵称变化"、"某人曾用名"等问题。需要先通过 get_members 工具获取成员 ID。 */
 export function createTool(context: ToolContext): AgentTool<typeof schema> {
   return {
     name: 'get_member_name_history',

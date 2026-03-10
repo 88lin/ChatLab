@@ -99,14 +99,40 @@ function loadAllAssistants(): void {
 
   for (const file of files) {
     try {
-      const config = readJsonFile<AssistantConfig>(path.join(assistantsDir, file))
-      if (config && config.id) {
+      const raw = readJsonFile<AssistantConfig & { responseRules?: string }>(path.join(assistantsDir, file))
+      if (raw && raw.id) {
+        const config = migrateResponseRules(raw, path.join(assistantsDir, file))
         cachedAssistants.set(config.id, config)
       }
     } catch (error) {
       aiLogger.warn('AssistantManager', `Failed to load assistant: ${file}`, { error: String(error) })
     }
   }
+}
+
+/**
+ * 迁移旧数据：将 responseRules 合并到 systemPrompt，删除旧字段并持久化
+ */
+function migrateResponseRules(
+  raw: AssistantConfig & { responseRules?: string },
+  filePath: string
+): AssistantConfig {
+  if (!raw.responseRules) return raw as AssistantConfig
+
+  const merged: AssistantConfig = {
+    ...raw,
+    systemPrompt: `${raw.systemPrompt}\n\n## 回答要求\n${raw.responseRules}`,
+  }
+  delete (merged as Record<string, unknown>).responseRules
+
+  try {
+    writeJsonFile(filePath, merged)
+    aiLogger.info('AssistantManager', `Migrated responseRules for assistant: ${raw.id}`)
+  } catch (error) {
+    aiLogger.warn('AssistantManager', `Failed to persist migration for: ${raw.id}`, { error: String(error) })
+  }
+
+  return merged
 }
 
 // ==================== 查询 API ====================

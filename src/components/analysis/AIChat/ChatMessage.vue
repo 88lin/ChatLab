@@ -204,7 +204,7 @@ function formatToolParams(tool: ToolBlockContent): string {
     return t(`ai.chat.message.toolParams.timeStats.${typeKey}`) || String(params.type)
   }
 
-  if (name === 'get_group_members') {
+  if (name === 'get_members') {
     if (params.search) {
       return `${t('ai.chat.message.toolParams.search')}: ${params.search}`
     }

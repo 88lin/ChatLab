@@ -26,8 +26,7 @@ export type PresetApplicableType = 'group' | 'private' | 'common'
 export interface PromptPreset {
   id: string
   name: string // 预设名称
-  roleDefinition: string // 角色定义（可编辑）
-  responseRules: string // 回答要求（可编辑）
+  systemPrompt: string // 系统提示词（角色定义 + 回答要求，统一为单一字段）
   isBuiltIn: boolean // 是否内置（内置不可删除）
   applicableTo?: PresetApplicableType // 适用场景，默认 'common'
   createdAt: number

@@ -61,10 +61,11 @@ function handleConfigure(id: string) {
 
       <!-- 助手卡片可滚动区域 -->
       <div class="max-h-[40vh] overflow-y-auto pr-1">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="assistant-grid">
           <AssistantCard
             v-for="assistant in filteredAssistants"
             :key="assistant.id"
+            class="assistant-grid-item"
             :assistant="assistant"
             @select="handleSelect"
             @configure="handleConfigure"
@@ -85,3 +86,19 @@ function handleConfigure(id: string) {
     </div>
   </div>
 </template>
+
+<style scoped>
+/* 使用换行 flex 布局，让不足一整行的卡片（含最后一行剩余项）自动居中 */
+.assistant-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+}
+
+/* 单卡宽度在 170~220px 之间收缩，最小窗口下可稳定维持约 3 列 */
+.assistant-grid-item {
+  min-width: 170px;
+  flex: 0 1 220px;
+}
+</style>

@@ -7,7 +7,7 @@ export { createTool as createSearchMessages } from './search-messages'
 export { createTool as createGetRecentMessages } from './get-recent-messages'
 export { createTool as createGetMemberStats } from './get-member-stats'
 export { createTool as createGetTimeStats } from './get-time-stats'
-export { createTool as createGetGroupMembers } from './get-group-members'
+export { createTool as createGetMembers } from './get-group-members'
 export { createTool as createGetMemberNameHistory } from './get-member-name-history'
 export { createTool as createGetConversationBetween } from './get-conversation-between'
 export { createTool as createGetMessageContext } from './get-message-context'
@@ -22,7 +22,7 @@ export const TS_TOOL_NAMES = [
   'get_recent_messages',
   'get_member_stats',
   'get_time_stats',
-  'get_group_members',
+  'get_members',
   'get_member_name_history',
   'get_conversation_between',
   'get_message_context',

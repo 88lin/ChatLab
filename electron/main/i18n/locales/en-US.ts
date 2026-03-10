@@ -60,7 +60,7 @@ export default {
           keywords:
             'List of search keywords, using OR logic to match messages containing any keyword. Pass an empty array [] to filter by sender only',
           sender_id:
-            'Sender member ID, used to filter messages from a specific member. Can be obtained via the get_group_members tool',
+            'Sender member ID, used to filter messages from a specific member. Can be obtained via the get_members tool',
           limit: 'Message count limit, default 1000, max 50000',
           year: 'Filter messages by year, e.g. 2024',
           month: 'Filter messages by month (1-12), use with year',
@@ -98,7 +98,7 @@ export default {
           type: 'Statistics type: hourly (by hour), weekday (by day of week), daily (by date)',
         },
       },
-      get_group_members: {
+      get_members: {
         desc: 'Get group member list, including basic info, aliases, and message statistics. Suitable for queries like "who is in the group", "what is someone\'s alias", or "whose ID is xxx".',
         params: {
           search: 'Optional search keyword to filter by member nickname, alias, or platform ID',
@@ -106,13 +106,13 @@ export default {
         },
       },
       get_member_name_history: {
-        desc: 'Get member name change history. Suitable for questions like "what was someone\'s previous name", "name changes", or "former names". Requires member ID from get_group_members tool first.',
+        desc: 'Get member name change history. Suitable for questions like "what was someone\'s previous name", "name changes", or "former names". Requires member ID from get_members tool first.',
         params: {
-          member_id: 'Member database ID, can be obtained via get_group_members tool',
+          member_id: 'Member database ID, can be obtained via get_members tool',
         },
       },
       get_conversation_between: {
-        desc: 'Get conversation records between two group members. Suitable for questions like "what did A and B talk about" or "view the conversation between two people". Requires member IDs from get_group_members first. Supports minute-level time queries.',
+        desc: 'Get conversation records between two group members. Suitable for questions like "what did A and B talk about" or "view the conversation between two people". Requires member IDs from get_members first. Supports minute-level time queries.',
         params: {
           member_id_1: 'Database ID of the first member',
           member_id_2: 'Database ID of the second member',
@@ -205,9 +205,9 @@ Returned summaries are brief descriptions of each session, helping quickly locat
         fallback: 'No messages found in this time range',
       },
       peak_chat_hours_by_member: {
-        desc: 'Analyze a specific member\'s hourly message distribution over the last N days to find their most active hours. Requires member_id from get_group_members.',
+        desc: 'Analyze a specific member\'s hourly message distribution over the last N days to find their most active hours. Requires member_id from get_members.',
         params: {
-          member_id: 'Member ID (from get_group_members)',
+          member_id: 'Member ID (from get_members)',
           days: 'Number of recent days to analyze',
         },
         rowTemplate: '{hour}:00 — {msg_count} messages',
@@ -215,9 +215,9 @@ Returned summaries are brief descriptions of each session, helping quickly locat
         fallback: 'This member has no messages in the specified time range',
       },
       member_activity_trend: {
-        desc: 'View a specific member\'s daily message count trend over the last N days. Useful for observing whether someone is becoming more or less active. Requires member_id from get_group_members.',
+        desc: 'View a specific member\'s daily message count trend over the last N days. Useful for observing whether someone is becoming more or less active. Requires member_id from get_members.',
         params: {
-          member_id: 'Member ID (from get_group_members)',
+          member_id: 'Member ID (from get_members)',
           days: 'Number of recent days to view',
         },
         rowTemplate: '{day}: {msg_count} messages',
@@ -296,12 +296,12 @@ Returned summaries are brief descriptions of each session, helping quickly locat
 `,
       memberNotePrivate: `Member query strategy:
 - Private chats only have two participants, so the member list can be directly obtained
-- When the user refers to "the other party" or "he/she", get the other participant's information via get_group_members
+- When the user refers to "the other party" or "he/she", get the other participant's information via get_members
 `,
       memberNoteGroup: `Member query strategy:
-- When the user refers to specific group members (e.g., "what did John say", "Mary's messages"), first call get_group_members to get the member list
+- When the user refers to specific group members (e.g., "what did John say", "Mary's messages"), first call get_members to get the member list
 - Group members have three names: accountName (original nickname), groupNickname (group nickname), aliases (user-defined aliases)
-- The search parameter of get_group_members can be used for fuzzy searching these three names
+- The search parameter of get_members can be used for fuzzy searching these three names
 - Once a member is found, use their id field as the sender_id parameter for search_messages to retrieve their messages
 `,
       timeParamsIntro: 'Time parameters: combine year/month/day/hour based on user mention',
@@ -312,16 +312,22 @@ Returned summaries are brief descriptions of each session, helping quickly locat
         'If year is not specified, defaults to {{year}}. If the month has not yet occurred, {{prevYear}} is used.',
       responseInstruction:
         "Based on the user's question, select appropriate tools to retrieve data, then provide an answer based on the data.",
-      responseRulesTitle: 'Response requirements:',
       fallbackRoleDefinition: {
         group: `You are a professional group chat analysis assistant.
-Your task is to help users understand and analyze their group chat data.`,
-        private: `You are a professional private chat analysis assistant.
-Your task is to help users understand and analyze their private chat data.`,
-      },
-      fallbackResponseRules: `1. Answer based on data returned by tools, do not fabricate information
+Your task is to help users understand and analyze their group chat data.
+
+## Response Requirements
+1. Answer based on data returned by tools, do not fabricate information
 2. If data is insufficient to answer, please state so
 3. Keep answers concise and clear, use Markdown format`,
+        private: `You are a professional private chat analysis assistant.
+Your task is to help users understand and analyze their private chat data.
+
+## Response Requirements
+1. Answer based on data returned by tools, do not fabricate information
+2. If data is insufficient to answer, please state so
+3. Keep answers concise and clear, use Markdown format`,
+      },
     },
   },
 

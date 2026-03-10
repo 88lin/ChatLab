@@ -18,10 +18,8 @@ export interface RemotePresetData {
   path: string
   /** 简短描述（索引中提供，用于列表展示） */
   description?: string
-  /** 角色定义（从 Markdown 文件解析后填充） */
-  roleDefinition?: string
-  /** 回复规则（从 Markdown 文件解析后填充） */
-  responseRules?: string
+  /** 系统提示词（从 Markdown 文件解析后填充） */
+  systemPrompt?: string
   /** 适用场景：common(通用)、group(仅群聊)、private(仅私聊) */
   chatType?: 'common' | 'group' | 'private'
 }
@@ -38,7 +36,7 @@ export const usePromptStore = defineStore(
 
     const customPromptPresets = ref<PromptPreset[]>([])
     const builtinPresetOverrides = ref<
-      Record<string, { name?: string; roleDefinition?: string; responseRules?: string; updatedAt?: number }>
+      Record<string, { name?: string; systemPrompt?: string; updatedAt?: number }>
     >({})
     const aiPromptSettings = ref<AIPromptSettings>({
       activePresetId: DEFAULT_PRESET_ID,
@@ -157,15 +155,13 @@ export const usePromptStore = defineStore(
      */
     function addPromptPreset(preset: {
       name: string
-      roleDefinition: string
-      responseRules: string
+      systemPrompt: string
       applicableTo?: 'common' | 'group' | 'private'
     }) {
       const newPreset: PromptPreset = {
         id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         name: preset.name,
-        roleDefinition: preset.roleDefinition,
-        responseRules: preset.responseRules,
+        systemPrompt: preset.systemPrompt,
         isBuiltIn: false,
         applicableTo: preset.applicableTo || 'common',
         createdAt: Date.now(),
@@ -182,8 +178,7 @@ export const usePromptStore = defineStore(
       presetId: string,
       updates: {
         name?: string
-        roleDefinition?: string
-        responseRules?: string
+        systemPrompt?: string
         applicableTo?: 'common' | 'group' | 'private'
       }
     ) {
@@ -192,8 +187,7 @@ export const usePromptStore = defineStore(
         builtinPresetOverrides.value[presetId] = {
           ...builtinPresetOverrides.value[presetId],
           name: updates.name,
-          roleDefinition: updates.roleDefinition,
-          responseRules: updates.responseRules,
+          systemPrompt: updates.systemPrompt,
           updatedAt: Date.now(),
         }
         return
@@ -254,8 +248,7 @@ export const usePromptStore = defineStore(
         const copySuffix = locale.value === 'zh-CN' ? '(副本)' : '(Copy)'
         return addPromptPreset({
           name: `${source.name} ${copySuffix}`,
-          roleDefinition: source.roleDefinition,
-          responseRules: source.responseRules,
+          systemPrompt: source.systemPrompt,
         })
       }
       return null
@@ -281,27 +274,11 @@ export const usePromptStore = defineStore(
     }
 
     /**
-     * 解析 Markdown 文件内容，使用 `---` 分隔 roleDefinition 和 responseRules
-     * @param content Markdown 文件内容
-     * @returns { roleDefinition, responseRules }
+     * 解析 Markdown 文件内容为完整的系统提示词
+     * 旧格式使用 `---` 分隔角色定义和回答要求，现统一为单一字段
      */
-    function parseMarkdownContent(content: string): { roleDefinition: string; responseRules: string } {
-      // 使用 `---` 独立成行作为分隔符
-      const separator = /\n---\n/
-      const parts = content.split(separator)
-
-      if (parts.length >= 2) {
-        return {
-          roleDefinition: parts[0].trim(),
-          responseRules: parts.slice(1).join('\n---\n').trim(),
-        }
-      }
-
-      // 如果没有分隔符，整个内容作为 roleDefinition
-      return {
-        roleDefinition: content.trim(),
-        responseRules: '',
-      }
+    function parseMarkdownContent(content: string): { systemPrompt: string } {
+      return { systemPrompt: content.trim() }
     }
 
     /**
@@ -338,10 +315,9 @@ export const usePromptStore = defineStore(
      */
     async function fetchPresetContent(
       preset: RemotePresetData
-    ): Promise<(RemotePresetData & { roleDefinition: string; responseRules: string }) | null> {
-      // 如果已经有内容，直接返回
-      if (preset.roleDefinition && preset.responseRules) {
-        return preset as RemotePresetData & { roleDefinition: string; responseRules: string }
+    ): Promise<(RemotePresetData & { systemPrompt: string }) | null> {
+      if (preset.systemPrompt) {
+        return preset as RemotePresetData & { systemPrompt: string }
       }
 
       const mdUrl = `${REMOTE_PRESET_BASE_URL}${preset.path}`
@@ -351,16 +327,12 @@ export const usePromptStore = defineStore(
           return null
         }
 
-        const { roleDefinition, responseRules } = parseMarkdownContent(mdResult.data)
-        if (!roleDefinition || !responseRules) {
+        const { systemPrompt } = parseMarkdownContent(mdResult.data)
+        if (!systemPrompt) {
           return null
         }
 
-        return {
-          ...preset,
-          roleDefinition,
-          responseRules,
-        }
+        return { ...preset, systemPrompt }
       } catch {
         return null
       }
@@ -372,20 +344,17 @@ export const usePromptStore = defineStore(
      * @returns 是否添加成功
      */
     function addRemotePreset(preset: RemotePresetData): boolean {
-      // 检查是否已添加
       if (fetchedRemotePresetIds.value.includes(preset.id)) {
         return false
       }
 
       const now = Date.now()
-      // 将远程 chatType 映射为本地 applicableTo
       const applicableTo = preset.chatType || 'common'
 
       const newPreset: PromptPreset = {
         id: preset.id,
         name: preset.name,
-        roleDefinition: preset.roleDefinition || '',
-        responseRules: preset.responseRules || '',
+        systemPrompt: preset.systemPrompt || '',
         isBuiltIn: false,
         applicableTo,
         createdAt: now,
@@ -421,24 +390,45 @@ export const usePromptStore = defineStore(
 
       // 如果存在旧字段，进行迁移
       if (oldSettings.activeGroupPresetId && !oldSettings.activePresetId) {
-        // 优先使用群聊预设，因为使用频率更高
         const oldGroupId = oldSettings.activeGroupPresetId
-        // 如果是旧的内置预设 ID，映射到新的统一 ID
         if (oldGroupId === 'builtin-group-default' || oldGroupId === 'builtin-private-default') {
           aiPromptSettings.value.activePresetId = DEFAULT_PRESET_ID
         } else {
           aiPromptSettings.value.activePresetId = oldGroupId
         }
-        // 清理旧字段
         delete (aiPromptSettings.value as Record<string, unknown>).activeGroupPresetId
         delete (aiPromptSettings.value as Record<string, unknown>).activePrivatePresetId
       }
 
-      // 迁移自定义预设中的 chatType 字段
       for (const preset of customPromptPresets.value) {
         const oldPreset = preset as PromptPreset & { chatType?: string }
         if (oldPreset.chatType) {
           delete oldPreset.chatType
+        }
+      }
+
+      // 迁移旧 roleDefinition + responseRules → systemPrompt
+      for (const preset of customPromptPresets.value) {
+        const legacy = preset as unknown as { roleDefinition?: string; responseRules?: string; systemPrompt?: string }
+        if (legacy.roleDefinition && !legacy.systemPrompt) {
+          preset.systemPrompt = legacy.responseRules
+            ? `${legacy.roleDefinition}\n\n## 回答要求\n${legacy.responseRules}`
+            : legacy.roleDefinition
+          delete (preset as Record<string, unknown>).roleDefinition
+          delete (preset as Record<string, unknown>).responseRules
+        }
+      }
+
+      // 迁移 builtinPresetOverrides 中的旧字段
+      for (const [id, override] of Object.entries(builtinPresetOverrides.value)) {
+        const legacy = override as unknown as { roleDefinition?: string; responseRules?: string; systemPrompt?: string }
+        if (legacy.roleDefinition && !legacy.systemPrompt) {
+          override.systemPrompt = legacy.responseRules
+            ? `${legacy.roleDefinition}\n\n## 回答要求\n${legacy.responseRules}`
+            : legacy.roleDefinition
+          delete (override as Record<string, unknown>).roleDefinition
+          delete (override as Record<string, unknown>).responseRules
+          builtinPresetOverrides.value[id] = override
         }
       }
     }
