@@ -196,5 +196,104 @@
       "hoursAgo": "{count} hr ago",
       "today": "Today"
     }
+  },
+  "assistant": {
+    "selector": {
+      "title": "Choose an assistant to start",
+      "subtitle": "Each assistant specializes in different types of analysis tasks. Pick the one that best fits your needs.",
+      "noAssistants": "No assistants available for this context",
+      "manage": "Manage Assistants"
+    },
+    "config": {
+      "viewTitle": "View Config",
+      "createTitle": "New Assistant",
+      "editTitle": "Assistant Config",
+      "tabs": {
+        "basic": "Basic",
+        "tools": "Tools"
+      },
+      "name": "Name",
+      "systemPrompt": "System Prompt",
+      "responseRules": "Response Rules",
+      "chatType": "Chat Type",
+      "chatTypeAll": "All",
+      "chatTypeGroup": "Group",
+      "chatTypePrivate": "Private",
+      "locale": "Language",
+      "localeHint": "None selected = all languages",
+      "presetQuestions": "Preset Questions",
+      "addQuestion": "Add a question...",
+      "builtinTools": "Built-in Tools",
+      "selectAll": "Select All",
+      "deselectAll": "Deselect All",
+      "builtinToolsHint": "No selection = all tools available. Only checked tools will be enabled.",
+      "toolGroupQuery": "Data Query Tools",
+      "toolGroupSql": "SQL Analysis Tools",
+      "customSqlTools": "Custom SQL Tools",
+      "customSqlToolsHint": "Declarative SQL tools are automatically registered as AI function calls. Execute parameterized SQL queries and format results.",
+      "toolUntitled": "Tool {index} (unnamed)",
+      "toolName": "Tool Name",
+      "toolNamePlaceholder": "e.g. top_active_members",
+      "toolDesc": "Tool Description",
+      "toolDescPlaceholder": "Query top active members",
+      "toolParams": "Parameters (JSON Schema)",
+      "toolQuery": "SQL Query (use @paramName for parameters)",
+      "toolQueryPlaceholder": "SELECT sender_name, COUNT(*) as cnt FROM message ...",
+      "toolRowTemplate": "Row Template ({columnName} placeholders)",
+      "toolRowTemplatePlaceholder": "{sender_name}: {cnt} messages",
+      "toolFallback": "Empty Result Message",
+      "toolFallbackPlaceholder": "No data found",
+      "toolFallbackDefault": "No data found",
+      "toolSummary": "Summary Template (optional, {rowCount} for row count)",
+      "toolSummaryPlaceholder": "Found {rowCount} records:",
+      "addCustomTool": "Add Custom SQL Tool",
+      "resetDefault": "Reset to Default",
+      "create": "Create"
+    },
+    "market": {
+      "title": "Manage Assistants",
+      "tabs": {
+        "local": "Local",
+        "market": "Marketplace"
+      },
+      "localHint": "Manage imported assistants — configure or delete",
+      "marketHint": "Browse built-in assistant templates — import to use and freely customize",
+      "default": "Default",
+      "updateAvailable": "Update Available",
+      "reimport": "Re-import",
+      "imported": "Imported",
+      "import": "Import",
+      "viewConfig": "View Config",
+      "duplicate": "Duplicate",
+      "addAssistant": "New Assistant",
+      "noLocal": "No imported assistants yet",
+      "noCatalog": "No assistant templates available"
+    },
+    "fallbackName": "Assistant",
+    "duplicateSuffix": " (Copy)",
+    "toast": {
+      "loadFailed": "Failed to load",
+      "createSuccess": "Created successfully",
+      "createFailed": "Failed to create",
+      "saveSuccess": "Saved successfully",
+      "saveFailed": "Failed to save",
+      "resetSuccess": "Reset to default",
+      "resetFailed": "Failed to reset",
+      "unknownError": "Unknown error"
+    },
+    "builtinToolDesc": {
+      "search_messages": "Search chat messages",
+      "get_recent_messages": "Get recent messages",
+      "get_message_context": "Get message context",
+      "get_conversation_between": "Get conversation between two members",
+      "get_group_members": "Get group members",
+      "get_member_stats": "Get member statistics",
+      "get_member_name_history": "Get member name history",
+      "get_time_stats": "Get time statistics",
+      "search_sessions": "Search sessions",
+      "get_session_messages": "Get session messages",
+      "get_session_summaries": "Get session summaries",
+      "semantic_search_messages": "Semantic search messages"
+    }
   }
 }

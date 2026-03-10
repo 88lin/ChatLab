@@ -31,20 +31,14 @@ const emit = defineEmits<{
     </button>
 
     <!-- 名称 -->
-    <h3 class="mb-1.5 pr-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
+    <h3 class="mb-1.5 truncate pr-6 text-sm font-semibold text-gray-900 dark:text-gray-100">
       {{ assistant.name }}
     </h3>
 
-    <!-- 描述 -->
+    <!-- 系统提示词预览 -->
     <p class="line-clamp-2 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
-      {{ assistant.description }}
+      {{ assistant.systemPrompt }}
     </p>
 
-    <!-- 用户已修改标记 -->
-    <div v-if="assistant.isUserModified" class="mt-2">
-      <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-        已自定义
-      </span>
-    </div>
   </div>
 </template>

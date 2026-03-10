@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useToast } from '@nuxt/ui/runtime/composables/useToast.js'
 import { useAssistantStore, type AssistantConfigFull } from '@/stores/assistant'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   open: boolean
   assistantId: string | null
+  readonly?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
   saved: []
+  created: [id: string]
 }>()
 
 const toast = useToast()
@@ -19,19 +24,28 @@ const assistantStore = useAssistantStore()
 const isLoading = ref(false)
 const isSaving = ref(false)
 const config = ref<AssistantConfigFull | null>(null)
-const activeTab = ref<'basic' | 'skills'>('basic')
+const isCreateMode = ref(false)
+const activeTab = ref<'basic' | 'tools'>('basic')
 
-const chatTypeOptions = [
-  { value: 'group', label: '群聊' },
-  { value: 'private', label: '私聊' },
-]
+const chatTypeOptions = computed(() => [
+  { value: '', label: t('ai.assistant.config.chatTypeAll') },
+  { value: 'group', label: t('ai.assistant.config.chatTypeGroup') },
+  { value: 'private', label: t('ai.assistant.config.chatTypePrivate') },
+])
 
 const localeOptions = [
-  { value: 'zh', label: '中文' },
+  { value: 'zh', label: '简体中文' },
   { value: 'en', label: 'English' },
 ]
 
-interface SkillForm {
+const BUILTIN_TS_TOOLS = computed(() =>
+  assistantStore.builtinTsToolNames.map((name) => ({
+    name,
+    description: t(`ai.assistant.builtinToolDesc.${name}`),
+  }))
+)
+
+interface ToolForm {
   name: string
   description: string
   parametersJson: string
@@ -43,62 +57,116 @@ interface SkillForm {
 
 const form = ref({
   name: '',
-  description: '',
   systemPrompt: '',
   responseRules: '',
   presetQuestions: [] as string[],
-  applicableChatTypes: [] as string[],
+  applicableChatType: '' as string,
   supportedLocales: [] as string[],
+  allowedBuiltinTools: [] as string[],
 })
 
-const skills = ref<SkillForm[]>([])
+const customSqlTools = ref<ToolForm[]>([])
 const newQuestion = ref('')
-const expandedSkillIndex = ref<number | null>(null)
+const expandedToolIndex = ref<number | null>(null)
 
-const hasSkills = computed(() => skills.value.length > 0)
+const toolGroups = computed(() => [
+  { label: t('ai.assistant.config.toolGroupQuery'), tools: BUILTIN_TS_TOOLS.value },
+  { label: t('ai.assistant.config.toolGroupSql'), tools: assistantStore.builtinSqlTools },
+])
+
+const allBuiltinTools = computed(() => [...BUILTIN_TS_TOOLS.value, ...assistantStore.builtinSqlTools])
+
+const hasCustomTools = computed(() => customSqlTools.value.length > 0)
+const toolBadgeCount = computed(() => {
+  const builtinCount = form.value.allowedBuiltinTools.length
+  const customCount = customSqlTools.value.filter((t) => t.name.trim()).length
+  return builtinCount + customCount
+})
+
+onMounted(async () => {
+  if (assistantStore.builtinTsToolNames.length === 0) {
+    await assistantStore.loadBuiltinTsToolNames()
+  }
+  if (assistantStore.builtinSqlTools.length === 0) {
+    await assistantStore.loadBuiltinSqlTools()
+  }
+})
 
 watch(
   () => [props.open, props.assistantId],
   async ([visible, id]) => {
-    if (visible && id) {
-      activeTab.value = 'basic'
+    if (!visible) return
+    activeTab.value = 'basic'
+    if (id) {
+      isCreateMode.value = false
       await loadConfig(id as string)
+    } else if (!props.readonly) {
+      isCreateMode.value = true
+      initEmptyForm()
     }
   },
   { immediate: true }
 )
 
-function skillDefToForm(skill: any): SkillForm {
+function toolDefToForm(tool: any): ToolForm {
   return {
-    name: skill.name || '',
-    description: skill.description || '',
-    parametersJson: JSON.stringify(skill.parameters || { type: 'object', properties: {}, required: [] }, null, 2),
-    query: skill.execution?.query || '',
-    rowTemplate: skill.execution?.rowTemplate || '',
-    summaryTemplate: skill.execution?.summaryTemplate || '',
-    fallback: skill.execution?.fallback || '',
+    name: tool.name || '',
+    description: tool.description || '',
+    parametersJson: JSON.stringify(tool.parameters || { type: 'object', properties: {}, required: [] }, null, 2),
+    query: tool.execution?.query || '',
+    rowTemplate: tool.execution?.rowTemplate || '',
+    summaryTemplate: tool.execution?.summaryTemplate || '',
+    fallback: tool.execution?.fallback || '',
   }
 }
 
-function formToSkillDef(sf: SkillForm): any {
+function formToToolDef(tf: ToolForm): any {
   let parameters: any
   try {
-    parameters = JSON.parse(sf.parametersJson)
+    parameters = JSON.parse(tf.parametersJson)
   } catch {
     parameters = { type: 'object', properties: {}, required: [] }
   }
   return {
-    name: sf.name,
-    description: sf.description,
+    name: tf.name,
+    description: tf.description,
     parameters,
     execution: {
       type: 'sqlite',
-      query: sf.query,
-      rowTemplate: sf.rowTemplate,
-      summaryTemplate: sf.summaryTemplate || undefined,
-      fallback: sf.fallback,
+      query: tf.query,
+      rowTemplate: tf.rowTemplate,
+      summaryTemplate: tf.summaryTemplate || undefined,
+      fallback: tf.fallback,
     },
   }
+}
+
+function initEmptyForm() {
+  config.value = {
+    id: '',
+    name: '',
+    systemPrompt: '',
+    responseRules: '',
+    presetQuestions: [],
+    allowedBuiltinTools: [],
+    customSqlTools: [],
+    version: 1,
+    order: 100,
+    applicableChatTypes: [],
+    supportedLocales: [],
+  }
+  form.value = {
+    name: '',
+    systemPrompt: '',
+    responseRules: '',
+    presetQuestions: [],
+    applicableChatType: '',
+    supportedLocales: [],
+    allowedBuiltinTools: [],
+  }
+  customSqlTools.value = []
+  expandedToolIndex.value = null
+  isLoading.value = false
 }
 
 async function loadConfig(id: string) {
@@ -108,54 +176,73 @@ async function loadConfig(id: string) {
     if (config.value) {
       form.value = {
         name: config.value.name,
-        description: config.value.description,
         systemPrompt: config.value.systemPrompt,
         responseRules: config.value.responseRules || '',
         presetQuestions: [...config.value.presetQuestions],
-        applicableChatTypes: [...(config.value.applicableChatTypes || [])],
+        applicableChatType: config.value.applicableChatTypes?.[0] || '',
         supportedLocales: [...(config.value.supportedLocales || [])],
+        allowedBuiltinTools: [...(config.value.allowedBuiltinTools || [])],
       }
-      skills.value = (config.value.customSkills || []).map(skillDefToForm)
-      expandedSkillIndex.value = null
+      customSqlTools.value = (config.value.customSqlTools || []).map(toolDefToForm)
+      expandedToolIndex.value = null
     }
   } catch (error) {
     console.error('[AssistantConfigModal] Failed to load config:', error)
-    toast.add({ title: '加载失败', description: String(error), color: 'error' })
+    toast.add({ title: t('ai.assistant.toast.loadFailed'), description: String(error), color: 'error' })
   } finally {
     isLoading.value = false
   }
 }
 
 async function handleSave() {
-  if (!props.assistantId) return
-
   isSaving.value = true
   try {
-    const customSkills = skills.value
-      .filter((s) => s.name.trim())
-      .map(formToSkillDef)
+    const customTools = customSqlTools.value.filter((t) => t.name.trim()).map(formToToolDef)
 
-    const result = await assistantStore.updateAssistant(props.assistantId, {
+    const payload = {
       name: form.value.name,
-      description: form.value.description,
       systemPrompt: form.value.systemPrompt,
       responseRules: form.value.responseRules,
-      presetQuestions: form.value.presetQuestions,
-      applicableChatTypes: form.value.applicableChatTypes as ('group' | 'private')[],
-      supportedLocales: form.value.supportedLocales,
-      customSkills,
-    })
+      presetQuestions: [...form.value.presetQuestions],
+      applicableChatTypes: form.value.applicableChatType
+        ? ([form.value.applicableChatType] as ('group' | 'private')[])
+        : ([] as ('group' | 'private')[]),
+      supportedLocales: [...form.value.supportedLocales],
+      allowedBuiltinTools: [...form.value.allowedBuiltinTools],
+      customSqlTools: customTools,
+    }
 
-    if (result.success) {
-      toast.add({ title: '保存成功', color: 'success' })
-      emit('saved')
-      closeModal()
+    if (isCreateMode.value) {
+      const result = await assistantStore.createAssistant(payload)
+      if (result.success) {
+        toast.add({ title: t('ai.assistant.toast.createSuccess'), color: 'success' })
+        emit('created', result.id!)
+        closeModal()
+      } else {
+        toast.add({
+          title: t('ai.assistant.toast.createFailed'),
+          description: result.error || t('ai.assistant.toast.unknownError'),
+          color: 'error',
+        })
+      }
     } else {
-      toast.add({ title: '保存失败', description: result.error || '未知错误', color: 'error' })
+      if (!props.assistantId) return
+      const result = await assistantStore.updateAssistant(props.assistantId, payload)
+      if (result.success) {
+        toast.add({ title: t('ai.assistant.toast.saveSuccess'), color: 'success' })
+        emit('saved')
+        closeModal()
+      } else {
+        toast.add({
+          title: t('ai.assistant.toast.saveFailed'),
+          description: result.error || t('ai.assistant.toast.unknownError'),
+          color: 'error',
+        })
+      }
     }
   } catch (error) {
     console.error('[AssistantConfigModal] Save failed:', error)
-    toast.add({ title: '保存失败', description: String(error), color: 'error' })
+    toast.add({ title: t('ai.assistant.toast.saveFailed'), description: String(error), color: 'error' })
   } finally {
     isSaving.value = false
   }
@@ -168,14 +255,18 @@ async function handleReset() {
   try {
     const result = await assistantStore.resetAssistant(props.assistantId)
     if (result.success) {
-      toast.add({ title: '已恢复默认', color: 'success' })
+      toast.add({ title: t('ai.assistant.toast.resetSuccess'), color: 'success' })
       await loadConfig(props.assistantId)
       emit('saved')
     } else {
-      toast.add({ title: '恢复失败', description: result.error || '未知错误', color: 'error' })
+      toast.add({
+        title: t('ai.assistant.toast.resetFailed'),
+        description: result.error || t('ai.assistant.toast.unknownError'),
+        color: 'error',
+      })
     }
   } catch (error) {
-    toast.add({ title: '恢复失败', description: String(error), color: 'error' })
+    toast.add({ title: t('ai.assistant.toast.resetFailed'), description: String(error), color: 'error' })
   } finally {
     isSaving.value = false
   }
@@ -193,39 +284,56 @@ function removeQuestion(index: number) {
   form.value.presetQuestions.splice(index, 1)
 }
 
-function addSkill() {
-  skills.value.push({
+function toggleBuiltinTool(toolName: string) {
+  const idx = form.value.allowedBuiltinTools.indexOf(toolName)
+  if (idx >= 0) {
+    form.value.allowedBuiltinTools.splice(idx, 1)
+  } else {
+    form.value.allowedBuiltinTools.push(toolName)
+  }
+}
+
+function isToolChecked(toolName: string): boolean {
+  if (form.value.allowedBuiltinTools.length === 0) return true
+  return form.value.allowedBuiltinTools.includes(toolName)
+}
+
+function selectAllTools() {
+  form.value.allowedBuiltinTools = allBuiltinTools.value.map((t) => t.name)
+}
+
+function clearAllTools() {
+  form.value.allowedBuiltinTools = []
+}
+
+function addCustomTool() {
+  customSqlTools.value.push({
     name: '',
     description: '',
     parametersJson: JSON.stringify({ type: 'object', properties: {}, required: [] }, null, 2),
     query: '',
     rowTemplate: '',
     summaryTemplate: '',
-    fallback: '未找到相关数据',
+    fallback: t('ai.assistant.config.toolFallbackDefault'),
   })
-  expandedSkillIndex.value = skills.value.length - 1
+  expandedToolIndex.value = customSqlTools.value.length - 1
 }
 
-function removeSkill(index: number) {
-  skills.value.splice(index, 1)
-  if (expandedSkillIndex.value === index) {
-    expandedSkillIndex.value = null
-  } else if (expandedSkillIndex.value !== null && expandedSkillIndex.value > index) {
-    expandedSkillIndex.value--
+function removeCustomTool(index: number) {
+  customSqlTools.value.splice(index, 1)
+  if (expandedToolIndex.value === index) {
+    expandedToolIndex.value = null
+  } else if (expandedToolIndex.value !== null && expandedToolIndex.value > index) {
+    expandedToolIndex.value--
   }
 }
 
-function toggleSkill(index: number) {
-  expandedSkillIndex.value = expandedSkillIndex.value === index ? null : index
+function toggleCustomTool(index: number) {
+  expandedToolIndex.value = expandedToolIndex.value === index ? null : index
 }
 
-function toggleChatType(value: string) {
-  const idx = form.value.applicableChatTypes.indexOf(value)
-  if (idx >= 0) {
-    form.value.applicableChatTypes.splice(idx, 1)
-  } else {
-    form.value.applicableChatTypes.push(value)
-  }
+function selectChatType(value: string) {
+  form.value.applicableChatType = value
 }
 
 function toggleLocale(value: string) {
@@ -243,12 +351,20 @@ function closeModal() {
 </script>
 
 <template>
-  <UModal :open="open" :ui="{ content: 'sm:max-w-2xl' }" @update:open="emit('update:open', $event)">
+  <UModal :open="open" :ui="{ content: 'sm:max-w-2xl z-100' }" @update:open="emit('update:open', $event)">
     <template #content>
       <div class="p-6">
         <!-- Header -->
         <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">助手配置</h2>
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+            {{
+              readonly
+                ? t('ai.assistant.config.viewTitle')
+                : isCreateMode
+                  ? t('ai.assistant.config.createTitle')
+                  : t('ai.assistant.config.editTitle')
+            }}
+          </h2>
           <UButton icon="i-heroicons-x-mark" variant="ghost" size="sm" @click="closeModal" />
         </div>
 
@@ -263,23 +379,30 @@ function closeModal() {
           <div class="mb-4 flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
             <button
               class="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-              :class="activeTab === 'basic'
-                ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'"
+              :class="
+                activeTab === 'basic'
+                  ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+              "
               @click="activeTab = 'basic'"
             >
-              基础配置
+              {{ t('ai.assistant.config.tabs.basic') }}
             </button>
             <button
               class="flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-              :class="activeTab === 'skills'
-                ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'"
-              @click="activeTab = 'skills'"
+              :class="
+                activeTab === 'tools'
+                  ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+              "
+              @click="activeTab = 'tools'"
             >
-              SQL 技能
-              <span v-if="hasSkills" class="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary-100 text-[10px] text-primary-600 dark:bg-primary-900/30 dark:text-primary-400">
-                {{ skills.length }}
+              {{ t('ai.assistant.config.tabs.tools') }}
+              <span
+                v-if="toolBadgeCount > 0"
+                class="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-100 px-1 text-[10px] text-primary-600 dark:bg-primary-900/30 dark:text-primary-400"
+              >
+                {{ toolBadgeCount }}
               </span>
             </button>
           </div>
@@ -287,171 +410,322 @@ function closeModal() {
           <div class="max-h-[500px] overflow-y-auto pr-1">
             <!-- 基础配置 Tab -->
             <div v-show="activeTab === 'basic'" class="space-y-5">
-              <!-- 名称 -->
               <div>
-                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">名称</label>
-                <UInput v-model="form.name" class="w-full" />
+                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('ai.assistant.config.name') }}
+                </label>
+                <UInput v-model="form.name" class="w-full" :disabled="readonly" />
               </div>
 
-              <!-- 描述 -->
               <div>
-                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">描述</label>
-                <UInput v-model="form.description" class="w-full" />
+                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('ai.assistant.config.systemPrompt') }}
+                </label>
+                <UTextarea
+                  v-model="form.systemPrompt"
+                  :rows="5"
+                  autoresize
+                  class="w-full font-mono text-sm"
+                  :disabled="readonly"
+                />
               </div>
 
-              <!-- 系统提示词 -->
               <div>
-                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">系统提示词</label>
-                <UTextarea v-model="form.systemPrompt" :rows="5" autoresize class="w-full font-mono text-sm" />
+                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('ai.assistant.config.responseRules') }}
+                </label>
+                <UTextarea
+                  v-model="form.responseRules"
+                  :rows="4"
+                  autoresize
+                  class="w-full font-mono text-sm"
+                  :disabled="readonly"
+                />
               </div>
 
-              <!-- 回答要求 -->
               <div>
-                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">回答要求</label>
-                <UTextarea v-model="form.responseRules" :rows="4" autoresize class="w-full font-mono text-sm" />
-              </div>
-
-              <!-- 适用聊天类型 -->
-              <div>
-                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">适用聊天类型</label>
+                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('ai.assistant.config.chatType') }}
+                </label>
                 <div class="flex flex-wrap gap-2">
                   <button
                     v-for="opt in chatTypeOptions"
                     :key="opt.value"
                     type="button"
                     class="rounded-lg border px-3 py-1.5 text-xs transition-colors"
-                    :class="form.applicableChatTypes.includes(opt.value)
-                      ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-950/30 dark:text-primary-300'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:text-gray-400'"
-                    @click="toggleChatType(opt.value)"
+                    :class="
+                      form.applicableChatType === opt.value
+                        ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-950/30 dark:text-primary-300'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:text-gray-400'
+                    "
+                    :disabled="readonly"
+                    @click="selectChatType(opt.value)"
                   >
                     {{ opt.label }}
                   </button>
                 </div>
-                <p class="mt-1 text-[10px] text-gray-400">不选 = 通用</p>
               </div>
 
-              <!-- 适用语言 -->
               <div>
-                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">适用语言</label>
+                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('ai.assistant.config.locale') }}
+                </label>
                 <div class="flex flex-wrap gap-2">
                   <button
                     v-for="opt in localeOptions"
                     :key="opt.value"
                     type="button"
                     class="rounded-lg border px-3 py-1.5 text-xs transition-colors"
-                    :class="form.supportedLocales.includes(opt.value)
-                      ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-950/30 dark:text-primary-300'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:text-gray-400'"
+                    :class="
+                      form.supportedLocales.includes(opt.value)
+                        ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-950/30 dark:text-primary-300'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300 dark:border-gray-700 dark:text-gray-400'
+                    "
+                    :disabled="readonly"
                     @click="toggleLocale(opt.value)"
                   >
                     {{ opt.label }}
                   </button>
                 </div>
-                <p class="mt-1 text-[10px] text-gray-400">不选 = 全语言</p>
+                <p class="mt-1 text-[10px] text-gray-400">{{ t('ai.assistant.config.localeHint') }}</p>
               </div>
 
-              <!-- 预设问题 -->
               <div>
-                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">预设问题</label>
+                <label class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('ai.assistant.config.presetQuestions') }}
+                </label>
                 <div class="space-y-2">
                   <div v-for="(q, index) in form.presetQuestions" :key="index" class="flex items-center gap-2">
-                    <UInput v-model="form.presetQuestions[index]" class="min-w-0 flex-1" size="sm" />
-                    <UButton color="error" variant="ghost" icon="i-heroicons-trash" size="xs" class="shrink-0" @click="removeQuestion(index)" />
+                    <UInput
+                      v-model="form.presetQuestions[index]"
+                      class="min-w-0 flex-1"
+                      size="sm"
+                      :disabled="readonly"
+                    />
+                    <UButton
+                      v-if="!readonly"
+                      color="error"
+                      variant="ghost"
+                      icon="i-heroicons-trash"
+                      size="xs"
+                      class="shrink-0"
+                      @click="removeQuestion(index)"
+                    />
                   </div>
-                  <div class="flex items-center gap-2">
+                  <div v-if="!readonly" class="flex items-center gap-2">
                     <UInput
                       v-model="newQuestion"
-                      placeholder="添加新问题..."
+                      :placeholder="t('ai.assistant.config.addQuestion')"
                       class="min-w-0 flex-1"
                       size="sm"
                       @keyup.enter="addQuestion"
                     />
-                    <UButton color="primary" variant="soft" icon="i-heroicons-plus" size="xs" class="shrink-0" @click="addQuestion" />
+                    <UButton
+                      color="primary"
+                      variant="soft"
+                      icon="i-heroicons-plus"
+                      size="xs"
+                      class="shrink-0"
+                      @click="addQuestion"
+                    />
                   </div>
                 </div>
               </div>
             </div>
 
-            <!-- SQL 技能 Tab -->
-            <div v-show="activeTab === 'skills'" class="space-y-4">
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                SQL 技能会自动注册为 AI 工具。助手可通过 Function Calling 调用，执行参数化 SQL 查询并格式化结果。
-              </p>
-
-              <!-- 技能列表 -->
-              <div v-for="(skill, index) in skills" :key="index" class="rounded-lg border border-gray-200 dark:border-gray-700">
-                <!-- 技能标题行 -->
-                <div
-                  class="flex cursor-pointer items-center justify-between px-3 py-2"
-                  @click="toggleSkill(index)"
-                >
-                  <span class="text-sm font-medium text-gray-800 dark:text-gray-200">
-                    {{ skill.name || `技能 ${index + 1}（未命名）` }}
-                  </span>
-                  <div class="flex items-center gap-1">
-                    <UButton
-                      color="error"
-                      variant="ghost"
-                      icon="i-heroicons-trash"
-                      size="xs"
-                      @click.stop="removeSkill(index)"
-                    />
-                    <UIcon
-                      :name="expandedSkillIndex === index ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-                      class="h-4 w-4 text-gray-400"
-                    />
+            <!-- 工具管理 Tab -->
+            <div v-show="activeTab === 'tools'" class="space-y-6">
+              <!-- 内置工具勾选区 -->
+              <div>
+                <div class="mb-2 flex items-center justify-between">
+                  <h3 class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {{ t('ai.assistant.config.builtinTools') }}
+                  </h3>
+                  <div v-if="!readonly" class="flex gap-2">
+                    <button class="text-[10px] text-primary-500 hover:text-primary-600" @click="selectAllTools">
+                      {{ t('ai.assistant.config.selectAll') }}
+                    </button>
+                    <span class="text-[10px] text-gray-300 dark:text-gray-600">|</span>
+                    <button class="text-[10px] text-primary-500 hover:text-primary-600" @click="clearAllTools">
+                      {{ t('ai.assistant.config.deselectAll') }}
+                    </button>
                   </div>
                 </div>
-
-                <!-- 技能编辑区 -->
-                <div v-if="expandedSkillIndex === index" class="space-y-3 border-t border-gray-200 px-3 py-3 dark:border-gray-700">
-                  <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">工具名称</label>
-                    <UInput v-model="skill.name" size="sm" class="w-full" placeholder="如 top_active_members" />
-                  </div>
-
-                  <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">工具描述</label>
-                    <UInput v-model="skill.description" size="sm" class="w-full" placeholder="查询最活跃成员排行" />
-                  </div>
-
-                  <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">参数定义（JSON Schema）</label>
-                    <UTextarea v-model="skill.parametersJson" :rows="4" class="w-full font-mono text-xs" />
-                  </div>
-
-                  <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">SQL 查询（使用 @paramName 引用参数）</label>
-                    <UTextarea v-model="skill.query" :rows="4" class="w-full font-mono text-xs" placeholder="SELECT sender_name, COUNT(*) as cnt FROM message WHERE ts > unixepoch('now', '-' || @days || ' days') GROUP BY sender_name ORDER BY cnt DESC LIMIT @limit" />
-                  </div>
-
-                  <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">行模板（{列名} 占位符）</label>
-                    <UInput v-model="skill.rowTemplate" size="sm" class="w-full" placeholder="{sender_name}: {cnt} 条消息" />
-                  </div>
-
-                  <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">空结果提示</label>
-                    <UInput v-model="skill.fallback" size="sm" class="w-full" placeholder="未找到相关数据" />
-                  </div>
-
-                  <div>
-                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">汇总模板（可选，{rowCount} 为行数）</label>
-                    <UInput v-model="skill.summaryTemplate" size="sm" class="w-full" placeholder="共找到 {rowCount} 条记录：" />
+                <p class="mb-3 text-[10px] text-gray-400">
+                  {{ t('ai.assistant.config.builtinToolsHint') }}
+                </p>
+                <div v-for="(group, gi) in toolGroups" :key="gi" class="mb-3 last:mb-0">
+                  <h4 class="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">{{ group.label }}</h4>
+                  <div class="grid grid-cols-2 gap-1.5">
+                    <label
+                      v-for="tool in group.tools"
+                      :key="tool.name"
+                      class="flex cursor-pointer items-start gap-2 rounded-md border px-2.5 py-2 transition-colors"
+                      :class="
+                        isToolChecked(tool.name)
+                          ? 'border-primary-200 bg-primary-50/50 dark:border-primary-800 dark:bg-primary-950/20'
+                          : 'border-gray-200 dark:border-gray-700'
+                      "
+                    >
+                      <input
+                        type="checkbox"
+                        :checked="form.allowedBuiltinTools.includes(tool.name)"
+                        :disabled="readonly"
+                        class="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        @change="toggleBuiltinTool(tool.name)"
+                      />
+                      <div class="min-w-0">
+                        <div class="truncate text-xs font-medium text-gray-800 dark:text-gray-200">{{ tool.name }}</div>
+                        <div class="truncate text-[10px] text-gray-500 dark:text-gray-400">{{ tool.description }}</div>
+                      </div>
+                    </label>
                   </div>
                 </div>
               </div>
 
-              <!-- 添加技能按钮 -->
-              <button
-                type="button"
-                class="flex w-full items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-gray-300 py-3 text-xs text-gray-500 transition-colors hover:border-primary-400 hover:text-primary-600 dark:border-gray-600 dark:text-gray-400 dark:hover:border-primary-500 dark:hover:text-primary-400"
-                @click="addSkill"
-              >
-                <UIcon name="i-heroicons-plus" class="h-4 w-4" />
-                添加 SQL 技能
-              </button>
+              <!-- 分割线 -->
+              <div class="border-t border-gray-200 dark:border-gray-700" />
+
+              <!-- 自定义 SQL 工具区 -->
+              <div>
+                <h3 class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('ai.assistant.config.customSqlTools') }}
+                  <span v-if="hasCustomTools" class="ml-1 text-xs font-normal text-gray-400">
+                    （{{ customSqlTools.length }}）
+                  </span>
+                </h3>
+                <p class="mb-3 text-[10px] text-gray-400">
+                  {{ t('ai.assistant.config.customSqlToolsHint') }}
+                </p>
+
+                <div
+                  v-for="(tool, index) in customSqlTools"
+                  :key="index"
+                  class="mb-2 rounded-lg border border-gray-200 dark:border-gray-700"
+                >
+                  <div
+                    class="flex cursor-pointer items-center justify-between px-3 py-2"
+                    @click="toggleCustomTool(index)"
+                  >
+                    <span class="text-sm font-medium text-gray-800 dark:text-gray-200">
+                      {{ tool.name || t('ai.assistant.config.toolUntitled', { index: index + 1 }) }}
+                    </span>
+                    <div class="flex items-center gap-1">
+                      <UButton
+                        v-if="!readonly"
+                        color="error"
+                        variant="ghost"
+                        icon="i-heroicons-trash"
+                        size="xs"
+                        @click.stop="removeCustomTool(index)"
+                      />
+                      <UIcon
+                        :name="expandedToolIndex === index ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                        class="h-4 w-4 text-gray-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div
+                    v-if="expandedToolIndex === index"
+                    class="space-y-3 border-t border-gray-200 px-3 py-3 dark:border-gray-700"
+                  >
+                    <div>
+                      <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                        {{ t('ai.assistant.config.toolName') }}
+                      </label>
+                      <UInput
+                        v-model="tool.name"
+                        size="sm"
+                        class="w-full"
+                        :placeholder="t('ai.assistant.config.toolNamePlaceholder')"
+                        :disabled="readonly"
+                      />
+                    </div>
+                    <div>
+                      <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                        {{ t('ai.assistant.config.toolDesc') }}
+                      </label>
+                      <UInput
+                        v-model="tool.description"
+                        size="sm"
+                        class="w-full"
+                        :placeholder="t('ai.assistant.config.toolDescPlaceholder')"
+                        :disabled="readonly"
+                      />
+                    </div>
+                    <div>
+                      <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                        {{ t('ai.assistant.config.toolParams') }}
+                      </label>
+                      <UTextarea
+                        v-model="tool.parametersJson"
+                        :rows="4"
+                        class="w-full font-mono text-xs"
+                        :disabled="readonly"
+                      />
+                    </div>
+                    <div>
+                      <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                        {{ t('ai.assistant.config.toolQuery') }}
+                      </label>
+                      <UTextarea
+                        v-model="tool.query"
+                        :rows="4"
+                        class="w-full font-mono text-xs"
+                        :disabled="readonly"
+                        :placeholder="t('ai.assistant.config.toolQueryPlaceholder')"
+                      />
+                    </div>
+                    <div>
+                      <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                        {{ t('ai.assistant.config.toolRowTemplate') }}
+                      </label>
+                      <UInput
+                        v-model="tool.rowTemplate"
+                        size="sm"
+                        class="w-full"
+                        :placeholder="t('ai.assistant.config.toolRowTemplatePlaceholder')"
+                        :disabled="readonly"
+                      />
+                    </div>
+                    <div>
+                      <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                        {{ t('ai.assistant.config.toolFallback') }}
+                      </label>
+                      <UInput
+                        v-model="tool.fallback"
+                        size="sm"
+                        class="w-full"
+                        :placeholder="t('ai.assistant.config.toolFallbackPlaceholder')"
+                        :disabled="readonly"
+                      />
+                    </div>
+                    <div>
+                      <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                        {{ t('ai.assistant.config.toolSummary') }}
+                      </label>
+                      <UInput
+                        v-model="tool.summaryTemplate"
+                        size="sm"
+                        class="w-full"
+                        :placeholder="t('ai.assistant.config.toolSummaryPlaceholder')"
+                        :disabled="readonly"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  v-if="!readonly"
+                  type="button"
+                  class="flex w-full items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-gray-300 py-3 text-xs text-gray-500 transition-colors hover:border-primary-400 hover:text-primary-600 dark:border-gray-600 dark:text-gray-400 dark:hover:border-primary-500 dark:hover:text-primary-400"
+                  @click="addCustomTool"
+                >
+                  <UIcon name="i-heroicons-plus" class="h-4 w-4" />
+                  {{ t('ai.assistant.config.addCustomTool') }}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -459,18 +733,22 @@ function closeModal() {
           <div class="mt-6 flex items-center justify-between">
             <div>
               <UButton
-                v-if="config?.builtinId"
+                v-if="!readonly && !isCreateMode && config?.builtinId"
                 variant="outline"
                 color="warning"
                 :loading="isSaving"
                 @click="handleReset"
               >
-                恢复默认
+                {{ t('ai.assistant.config.resetDefault') }}
               </UButton>
             </div>
             <div class="flex gap-2">
-              <UButton variant="ghost" @click="closeModal">取消</UButton>
-              <UButton color="primary" :loading="isSaving" @click="handleSave">保存</UButton>
+              <UButton variant="ghost" @click="closeModal">
+                {{ readonly ? t('common.close') : t('common.cancel') }}
+              </UButton>
+              <UButton v-if="!readonly" color="primary" :loading="isSaving" @click="handleSave">
+                {{ isCreateMode ? t('ai.assistant.config.create') : t('common.save') }}
+              </UButton>
             </div>
           </div>
         </template>

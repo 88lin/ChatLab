@@ -187,6 +187,88 @@ export default {
           end_time: '结束时间，格式 "YYYY-MM-DD HH:mm"',
         },
       },
+      // ===== SQL 分析工具 =====
+      daily_message_type_breakdown: {
+        desc: '按消息类型统计近 N 天的消息分布（文本、图片、语音、表情等各有多少条）。适用于了解群聊的沟通方式偏好。',
+        params: { days: '统计最近多少天的数据' },
+        rowTemplate: '{type_name}：{msg_count} 条（占 {percentage}%）',
+        summaryTemplate: '近 {rowCount} 种消息类型的分布：',
+        fallback: '该时间范围内没有消息记录',
+      },
+      peak_chat_hours_by_member: {
+        desc: '分析指定成员在近 N 天内每小时的发言量分布，找出其最活跃的时段。需要先通过 get_group_members 获取 member_id。',
+        params: {
+          member_id: '成员 ID（通过 get_group_members 获取）',
+          days: '统计最近多少天的数据',
+        },
+        rowTemplate: '{hour}:00 — {msg_count} 条消息',
+        summaryTemplate: '该成员各时段发言量（共 {rowCount} 个活跃时段）：',
+        fallback: '该成员在指定时间范围内没有发言记录',
+      },
+      member_activity_trend: {
+        desc: '查看指定成员近 N 天的每日发言数量变化趋势。适用于观察某人是否变得更活跃或更沉默。需要先通过 get_group_members 获取 member_id。',
+        params: {
+          member_id: '成员 ID（通过 get_group_members 获取）',
+          days: '查看最近多少天的趋势',
+        },
+        rowTemplate: '{day}：{msg_count} 条',
+        summaryTemplate: '该成员近 {rowCount} 天有发言记录：',
+        fallback: '该成员在指定时间范围内没有发言记录',
+      },
+      silent_members: {
+        desc: '检测超过 N 天未发言的「沉默成员」。适用于社群运营中发现流失风险用户。',
+        params: { days: '多少天未发言算沉默' },
+        rowTemplate: '{name} — 已沉默 {silent_days} 天',
+        summaryTemplate: '共发现 {rowCount} 位沉默成员：',
+        fallback: '没有发现超过指定天数未发言的成员，社群活跃度良好！',
+      },
+      reply_interaction_ranking: {
+        desc: '分析群内的回复互动关系排行，找出谁回复谁最多。适用于发现社群中的核心互动关系和意见领袖。',
+        params: {
+          days: '统计最近多少天的数据',
+          limit: '返回前多少对互动关系',
+        },
+        rowTemplate: '{replier_name} → {original_name}：{reply_count} 次回复',
+        summaryTemplate: '回复互动 Top {rowCount}：',
+        fallback: '该时间范围内没有回复互动记录',
+      },
+      mutual_interaction_pairs: {
+        desc: '找出互动最频繁的成员对，基于双向消息时间接近度（一方发言后 5 分钟内另一方也发言即视为一次互动）。适用于发现关系亲密的好友组合。',
+        params: {
+          days: '统计最近多少天的数据',
+          limit: '返回前多少对',
+        },
+        rowTemplate: '{member_a} ↔ {member_b}：{interaction_count} 次互动',
+        summaryTemplate: '互动最频繁的 {rowCount} 对好友：',
+        fallback: '该时间范围内没有检测到明显的互动关系',
+      },
+      member_message_length_stats: {
+        desc: '统计各成员的平均消息长度（仅文本消息），长消息通常意味着更用心的交流。适用于发现深度交流者。',
+        params: {
+          days: '统计最近多少天的数据',
+          top_n: '返回前多少名',
+        },
+        rowTemplate: '{name} — 平均 {avg_length} 字/条（共 {msg_count} 条，最长 {max_length} 字）',
+        summaryTemplate: '消息长度 Top {rowCount}（更长 = 更用心）：',
+        fallback: '该时间范围内没有足够的文本消息数据',
+      },
+      unanswered_messages: {
+        desc: '查找近 N 天内未被回复的消息，这些可能是未解决的客户问题。仅统计文本消息且内容超过 10 字的（过滤简短寒暄）。',
+        params: {
+          days: '查找最近多少天的数据',
+          limit: '最多返回多少条',
+        },
+        rowTemplate: '[{send_time}] {sender_name}：{content_preview}',
+        summaryTemplate: '共发现 {rowCount} 条可能未被回复的消息：',
+        fallback: '该时间范围内所有消息都已得到回复，服务质量很好！',
+      },
+      message_type_distribution: {
+        desc: '统计近 N 天内各种消息类型的数量分布（文本、图片、语音、文件等），帮助了解客服沟通的方式偏好和优化方向。',
+        params: { days: '统计最近多少天的数据' },
+        rowTemplate: '{type_name}：{msg_count} 条（{percentage}%）',
+        summaryTemplate: '消息类型分布（共 {rowCount} 种类型）：',
+        fallback: '该时间范围内没有消息记录',
+      },
     },
 
     // ===== AI Agent 系统提示词 =====

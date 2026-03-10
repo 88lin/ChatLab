@@ -11,6 +11,7 @@ import { useAIChat } from '@/composables/useAIChat'
 import CaptureButton from '@/components/common/CaptureButton.vue'
 import AssistantSelector from './AssistantSelector.vue'
 import AssistantConfigModal from './AssistantConfigModal.vue'
+import AssistantMarketModal from './AssistantMarketModal.vue'
 import PresetQuestions from './PresetQuestions.vue'
 import { usePromptStore } from '@/stores/prompt'
 import { useSettingsStore } from '@/stores/settings'
@@ -55,6 +56,8 @@ const promptStore = usePromptStore()
 const showAssistantSelector = ref(true)
 const configModalVisible = ref(false)
 const configModalAssistantId = ref<string | null>(null)
+const configModalReadonly = ref(false)
+const marketModalVisible = ref(false)
 
 // 当前选中助手的预设问题
 const currentPresetQuestions = computed(() => {
@@ -154,10 +157,43 @@ function handleSelectAssistant(id: string) {
   startNewConversation(generateWelcomeMessage())
 }
 
-// 打开助手配置弹窗
+// 打开助手配置弹窗（可编辑）
 function handleConfigureAssistant(id: string) {
   configModalAssistantId.value = id
+  configModalReadonly.value = false
   configModalVisible.value = true
+}
+
+// 打开助手市场
+function handleOpenMarket() {
+  marketModalVisible.value = true
+}
+
+// 从市场中打开配置弹窗（可编辑）
+function handleMarketConfigure(id: string) {
+  configModalAssistantId.value = id
+  configModalReadonly.value = false
+  configModalVisible.value = true
+}
+
+// 从市场中查看配置（只读）
+function handleMarketViewConfig(id: string) {
+  configModalAssistantId.value = id
+  configModalReadonly.value = true
+  configModalVisible.value = true
+}
+
+// 新建助手（从管理弹窗触发）
+function handleCreateAssistant() {
+  configModalAssistantId.value = null
+  configModalReadonly.value = false
+  configModalVisible.value = true
+}
+
+// 助手创建完成后刷新列表
+async function handleAssistantCreated(_id: string) {
+  await assistantStore.loadAssistants()
+  await assistantStore.loadBuiltinCatalog()
 }
 
 // 返回助手选择
@@ -344,6 +380,7 @@ watch(
         :locale="settingsStore.locale"
         @select="handleSelectAssistant"
         @configure="handleConfigureAssistant"
+        @market="handleOpenMarket"
       />
 
       <!-- 对话区域 -->
@@ -359,7 +396,7 @@ watch(
                 <UIcon name="i-heroicons-arrow-left" class="h-4 w-4" />
               </button>
               <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                {{ assistantStore.selectedAssistant?.name || '助手' }}
+                {{ assistantStore.selectedAssistant?.name || t('ai.assistant.fallbackName') }}
               </span>
             </div>
         <!-- 消息列表 -->
@@ -486,8 +523,19 @@ watch(
     <AssistantConfigModal
       :open="configModalVisible"
       :assistant-id="configModalAssistantId"
+      :readonly="configModalReadonly"
       @update:open="configModalVisible = $event"
       @saved="handleAssistantConfigSaved"
+      @created="handleAssistantCreated"
+    />
+
+    <!-- 助手管理弹窗 -->
+    <AssistantMarketModal
+      :open="marketModalVisible"
+      @update:open="marketModalVisible = $event"
+      @configure="handleMarketConfigure"
+      @view-config="handleMarketViewConfig"
+      @create="handleCreateAssistant"
     />
   </div>
 </template>

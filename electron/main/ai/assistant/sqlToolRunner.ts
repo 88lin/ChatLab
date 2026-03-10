@@ -1,21 +1,21 @@
 /**
- * 声明式 SQL 技能运行器
+ * 声明式 SQL 工具运行器
  *
- * 将 CustomSkillDef JSON 配置转换为可执行的 AgentTool，
+ * 将 CustomSqlToolDef JSON 配置转换为可执行的 AgentTool，
  * 通过 pluginQuery 执行参数化 SQL 并格式化结果。
  */
 
 import { Type, type TObject, type TProperties } from '@mariozechner/pi-ai'
 import type { AgentTool } from '@mariozechner/pi-agent-core'
 import type { ToolContext } from '../tools/types'
-import type { CustomSkillDef, JsonSchemaObject, JsonSchemaProperty } from './types'
+import type { CustomSqlToolDef, JsonSchemaObject } from './types'
 import * as workerManager from '../../worker/workerManager'
+import { t as i18nT } from '../../i18n'
 
 /**
  * 将简化 JSON Schema 对象转换为 TypeBox TObject
  *
- * 仅覆盖技能参数定义的常见类型（string / number / integer / boolean），
- * 足以满足声明式 SQL 技能的参数需求。
+ * 仅覆盖 SQL 工具参数定义的常见类型（string / number / integer / boolean）。
  */
 export function jsonSchemaToTypeBox(schema: JsonSchemaObject): TObject<TProperties> {
   const props: TProperties = {}
@@ -50,10 +50,6 @@ export function jsonSchemaToTypeBox(schema: JsonSchemaObject): TObject<TProperti
   return Type.Object(props)
 }
 
-/**
- * 根据行格式化模板格式化单行数据
- * 模板使用 {columnName} 占位符
- */
 function formatRow(template: string, row: Record<string, unknown>): string {
   return template.replace(/\{(\w+)\}/g, (_, col) => {
     const val = row[col]
@@ -62,54 +58,64 @@ function formatRow(template: string, row: Record<string, unknown>): string {
 }
 
 /**
- * 从 CustomSkillDef 创建可执行的 AgentTool
+ * Resolve an i18n template string for a SQL tool, falling back to the definition's original value.
  */
-export function createSkillTool(skill: CustomSkillDef, context: ToolContext): AgentTool<any> {
-  const schema = jsonSchemaToTypeBox(skill.parameters)
+function resolveTemplate(toolName: string, key: string, fallback: string): string {
+  const i18nKey = `ai.tools.${toolName}.${key}`
+  const translated = i18nT(i18nKey)
+  return translated !== i18nKey ? translated : fallback
+}
+
+/**
+ * 从 CustomSqlToolDef 创建可执行的 AgentTool
+ */
+export function createSqlTool(def: CustomSqlToolDef, context: ToolContext): AgentTool<any> {
+  const schema = jsonSchemaToTypeBox(def.parameters)
 
   return {
-    name: skill.name,
-    label: skill.name,
-    description: skill.description,
+    name: def.name,
+    label: def.name,
+    description: def.description,
     parameters: schema,
     execute: async (_toolCallId: string, params: Record<string, unknown>) => {
-      // 构建命名参数对象（添加 @ 前缀）
-      const namedParams: Record<string, unknown> = {}
-      for (const [key, value] of Object.entries(params)) {
-        namedParams[`@${key}`] = value
-      }
-
       const rows = await workerManager.pluginQuery(
         context.sessionId,
-        skill.execution.query,
-        namedParams
+        def.execution.query,
+        params
       )
 
+      const fallback = resolveTemplate(def.name, 'fallback', def.execution.fallback)
+
       if (!rows || rows.length === 0) {
-        return { content: skill.execution.fallback }
+        return { content: [{ type: 'text' as const, text: fallback }] }
       }
+
+      const rowTemplate = resolveTemplate(def.name, 'rowTemplate', def.execution.rowTemplate)
+      const summaryTemplate = def.execution.summaryTemplate
+        ? resolveTemplate(def.name, 'summaryTemplate', def.execution.summaryTemplate)
+        : undefined
 
       const lines: string[] = []
 
-      if (skill.execution.summaryTemplate) {
+      if (summaryTemplate) {
         lines.push(
-          skill.execution.summaryTemplate.replace(/\{rowCount\}/g, String(rows.length))
+          summaryTemplate.replace(/\{rowCount\}/g, String(rows.length))
         )
         lines.push('')
       }
 
       for (const row of rows) {
-        lines.push(formatRow(skill.execution.rowTemplate, row as Record<string, unknown>))
+        lines.push(formatRow(rowTemplate, row as Record<string, unknown>))
       }
 
-      return { content: lines.join('\n') }
+      return { content: [{ type: 'text' as const, text: lines.join('\n') }] }
     },
   }
 }
 
 /**
- * 从技能定义列表批量创建 AgentTool 数组
+ * 从 SQL 工具定义列表批量创建 AgentTool 数组
  */
-export function createSkillTools(skills: CustomSkillDef[], context: ToolContext): AgentTool<any>[] {
-  return skills.map((skill) => createSkillTool(skill, context))
+export function createSqlTools(defs: CustomSqlToolDef[], context: ToolContext): AgentTool<any>[] {
+  return defs.map((def) => createSqlTool(def, context))
 }

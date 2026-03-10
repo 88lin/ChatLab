@@ -1,12 +1,13 @@
 /**
  * 助手管理器
- * 负责助手配置的加载、CRUD、版本比对更新和内置助手同步
+ * 负责助手配置的加载、CRUD 和内置助手导入
  *
- * 存储策略：
- * - 内置助手打包在 electron/main/ai/assistant/builtins/ 中
- * - 首次启动时复制到 {userData}/data/ai/assistants/
- * - 用户可修改，修改后标记 isUserModified = true
- * - 应用更新时，未被用户修改的内置助手自动更新为新版本
+ * 存储策略（导入模型）：
+ * - 内置助手作为模板目录打包在 BUILTIN_CONFIGS 中
+ * - 启动时仅自动导入 general 助手
+ * - 用户通过"助手市场"主动导入其他内置助手
+ * - 导入后完全属于用户，可自由编辑/删除（general 除外）
+ * - 市场可查看内置助手是否有新版本，用户可手动重新导入
  */
 
 import * as fs from 'fs'
@@ -14,9 +15,14 @@ import * as path from 'path'
 import { randomUUID } from 'crypto'
 import { getAiDataDir, ensureDir } from '../../paths'
 import { aiLogger } from '../logger'
-import type { AssistantConfig, AssistantSummary, AssistantSyncResult, AssistantSaveResult } from './types'
+import type {
+  AssistantConfig,
+  AssistantSummary,
+  AssistantInitResult,
+  AssistantSaveResult,
+  BuiltinAssistantInfo,
+} from './types'
 
-// 直接 import 内置助手 JSON（构建时嵌入 bundle，无需运行时文件系统读取）
 import builtinGeneral from './builtins/general.json'
 import builtinCommunityAnalyst from './builtins/community_analyst.json'
 import builtinEmotionAnalyst from './builtins/emotion_analyst.json'
@@ -34,83 +40,50 @@ const ASSISTANTS_DIR_NAME = 'assistants'
 let cachedAssistants: Map<string, AssistantConfig> = new Map()
 let initialized = false
 
-/**
- * 获取用户助手配置目录
- */
 function getAssistantsDir(): string {
   return path.join(getAiDataDir(), ASSISTANTS_DIR_NAME)
 }
 
-// ==================== 初始化与同步 ====================
+// ==================== 初始化 ====================
 
 /**
  * 初始化助手管理器
  * - 确保目录存在
- * - 同步内置助手到用户目录
- * - 加载所有助手配置
+ * - 确保 general 助手已导入
+ * - 加载所有用户助手配置
  */
-export function initAssistantManager(): AssistantSyncResult {
+export function initAssistantManager(): AssistantInitResult {
   const assistantsDir = getAssistantsDir()
   ensureDir(assistantsDir)
 
-  const syncResult = syncBuiltinAssistants()
+  const generalCreated = ensureGeneralAssistant()
   loadAllAssistants()
 
   initialized = true
   aiLogger.info('AssistantManager', 'Initialized', {
     total: cachedAssistants.size,
-    ...syncResult,
+    generalCreated,
   })
 
-  return syncResult
+  return { total: cachedAssistants.size, generalCreated }
 }
 
 /**
- * 同步内置助手到用户目录
- * - 新增的内置助手：复制到用户目录
- * - 已有且未修改：如果版本更高则更新
- * - 已有且已修改：跳过
+ * 确保 general 助手存在于用户目录（首次启动自动导入）
  */
-function syncBuiltinAssistants(): AssistantSyncResult {
-  const result: AssistantSyncResult = { total: 0, added: 0, updated: 0, skipped: 0 }
+function ensureGeneralAssistant(): boolean {
+  const generalConfig = BUILTIN_CONFIGS.find((c) => c.id === 'general')
+  if (!generalConfig) return false
 
-  for (const builtinConfig of BUILTIN_CONFIGS) {
-    try {
-      if (!builtinConfig || !builtinConfig.id) continue
+  const userFilePath = path.join(getAssistantsDir(), 'general.json')
+  if (fs.existsSync(userFilePath)) return false
 
-      const userFilePath = path.join(getAssistantsDir(), `${builtinConfig.id}.json`)
-
-      if (!fs.existsSync(userFilePath)) {
-        const configToWrite: AssistantConfig = {
-          ...builtinConfig,
-          builtinId: builtinConfig.id,
-          isUserModified: false,
-        }
-        writeJsonFile(userFilePath, configToWrite)
-        result.added++
-      } else {
-        const userConfig = readJsonFile<AssistantConfig>(userFilePath)
-        if (!userConfig) continue
-
-        if (userConfig.isUserModified) {
-          result.skipped++
-        } else if (builtinConfig.version > (userConfig.version || 0)) {
-          const configToWrite: AssistantConfig = {
-            ...builtinConfig,
-            builtinId: builtinConfig.id,
-            isUserModified: false,
-          }
-          writeJsonFile(userFilePath, configToWrite)
-          result.updated++
-        }
-      }
-    } catch (error) {
-      aiLogger.warn('AssistantManager', `Failed to sync builtin: ${builtinConfig.id}`, { error: String(error) })
-    }
+  const configToWrite: AssistantConfig = {
+    ...generalConfig,
+    builtinId: generalConfig.id,
   }
-
-  result.total = BUILTIN_CONFIGS.length
-  return result
+  writeJsonFile(userFilePath, configToWrite)
+  return true
 }
 
 /**
@@ -139,8 +112,7 @@ function loadAllAssistants(): void {
 // ==================== 查询 API ====================
 
 /**
- * 获取所有助手的摘要列表（用于前端展示）
- * 按 order 排序，order 相同时按名称排序
+ * 获取所有已导入助手的摘要列表（用于前端展示）
  */
 export function getAllAssistants(): AssistantSummary[] {
   ensureInitialized()
@@ -170,6 +142,87 @@ export function hasAssistant(id: string): boolean {
   return cachedAssistants.has(id)
 }
 
+// ==================== 内置助手目录（市场） ====================
+
+/**
+ * 获取内置助手模板目录（用于助手市场展示）
+ * 对每个内置助手检查用户是否已导入、是否有版本更新
+ */
+export function getBuiltinCatalog(): BuiltinAssistantInfo[] {
+  ensureInitialized()
+
+  return BUILTIN_CONFIGS.map((builtin) => {
+    const userAssistant = findImportedByBuiltinId(builtin.id)
+    const imported = !!userAssistant
+    const hasUpdate = imported && builtin.version > (userAssistant!.version || 0)
+
+    return {
+      id: builtin.id,
+      name: builtin.name,
+      systemPrompt: builtin.systemPrompt,
+      version: builtin.version,
+      order: builtin.order,
+      applicableChatTypes: builtin.applicableChatTypes,
+      supportedLocales: builtin.supportedLocales,
+      imported,
+      hasUpdate,
+    }
+  })
+}
+
+/**
+ * 从内置模板导入助手到用户目录
+ * - 同一 builtinId 不可重复导入
+ */
+export function importAssistant(builtinId: string): AssistantSaveResult {
+  ensureInitialized()
+
+  const builtinConfig = BUILTIN_CONFIGS.find((c) => c.id === builtinId)
+  if (!builtinConfig) {
+    return { success: false, error: `Builtin assistant not found: ${builtinId}` }
+  }
+
+  const existing = findImportedByBuiltinId(builtinId)
+  if (existing) {
+    return { success: false, error: `Assistant already imported: ${builtinId}` }
+  }
+
+  const newConfig: AssistantConfig = {
+    ...builtinConfig,
+    builtinId: builtinConfig.id,
+  }
+
+  return saveAssistantToDisk(newConfig)
+}
+
+/**
+ * 重新导入内置助手（覆盖用户副本为最新模板版本，保留 id）
+ */
+export function reimportAssistant(id: string): AssistantSaveResult {
+  ensureInitialized()
+
+  const existing = cachedAssistants.get(id)
+  if (!existing) {
+    return { success: false, error: `Assistant not found: ${id}` }
+  }
+  if (!existing.builtinId) {
+    return { success: false, error: 'Only imported builtin assistants can be reimported' }
+  }
+
+  const builtinConfig = BUILTIN_CONFIGS.find((c) => c.id === existing.builtinId)
+  if (!builtinConfig) {
+    return { success: false, error: `Builtin template not found: ${existing.builtinId}` }
+  }
+
+  const updatedConfig: AssistantConfig = {
+    ...builtinConfig,
+    id: existing.id,
+    builtinId: existing.builtinId,
+  }
+
+  return saveAssistantToDisk(updatedConfig)
+}
+
 // ==================== 修改 API ====================
 
 /**
@@ -186,12 +239,7 @@ export function updateAssistant(id: string, updates: Partial<AssistantConfig>): 
   const updated: AssistantConfig = {
     ...existing,
     ...updates,
-    id, // id 不可变
-  }
-
-  // 如果是内置助手被修改，标记 isUserModified
-  if (existing.builtinId) {
-    updated.isUserModified = true
+    id,
   }
 
   return saveAssistantToDisk(updated)
@@ -209,7 +257,6 @@ export function createAssistant(config: Omit<AssistantConfig, 'id' | 'version'>)
     id,
     version: 1,
     builtinId: undefined,
-    isUserModified: undefined,
   }
 
   const result = saveAssistantToDisk(newConfig)
@@ -218,18 +265,18 @@ export function createAssistant(config: Omit<AssistantConfig, 'id' | 'version'>)
 
 /**
  * 删除助手
- * 内置助手不允许删除，只能重置
+ * general 助手不可删除，其他导入的内置助手可以删除
  */
 export function deleteAssistant(id: string): AssistantSaveResult {
   ensureInitialized()
 
+  if (id === 'general') {
+    return { success: false, error: 'Cannot delete the default assistant (general)' }
+  }
+
   const existing = cachedAssistants.get(id)
   if (!existing) {
     return { success: false, error: `Assistant not found: ${id}` }
-  }
-
-  if (existing.builtinId) {
-    return { success: false, error: 'Cannot delete builtin assistant. Use resetAssistant() instead.' }
   }
 
   try {
@@ -262,8 +309,8 @@ export function resetAssistant(id: string): AssistantSaveResult {
 
   const resetConfig: AssistantConfig = {
     ...builtinConfig,
-    builtinId: builtinConfig.id,
-    isUserModified: false,
+    id: existing.id,
+    builtinId: existing.builtinId,
   }
 
   return saveAssistantToDisk(resetConfig)
@@ -273,7 +320,6 @@ export function resetAssistant(id: string): AssistantSaveResult {
 
 /**
  * 备份旧的提示词预设数据到 data/backup 目录
- * 由前端在首次检测到旧数据时调用
  */
 export function backupOldPromptPresets(data: {
   customPresets?: unknown[]
@@ -311,15 +357,18 @@ function ensureInitialized(): void {
   }
 }
 
+function findImportedByBuiltinId(builtinId: string): AssistantConfig | undefined {
+  return Array.from(cachedAssistants.values()).find((c) => c.builtinId === builtinId)
+}
+
 function toSummary(config: AssistantConfig): AssistantSummary {
   return {
     id: config.id,
     name: config.name,
-    description: config.description,
+    systemPrompt: config.systemPrompt,
     presetQuestions: config.presetQuestions,
     order: config.order,
     builtinId: config.builtinId,
-    isUserModified: config.isUserModified,
     applicableChatTypes: config.applicableChatTypes,
     supportedLocales: config.supportedLocales,
   }

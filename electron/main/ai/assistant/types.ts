@@ -1,6 +1,6 @@
 /**
  * 助手系统类型定义
- * 定义助手配置、声明式 SQL 技能等核心类型
+ * 定义助手配置、声明式 SQL 工具等核心类型
  */
 
 // ==================== 助手配置 ====================
@@ -9,15 +9,14 @@
  * 助手配置（JSON 配置文件的完整结构）
  *
  * 每个助手对应一个 JSON 文件，存储在 {userData}/data/ai/assistants/ 目录下。
- * 内置助手同时打包在应用 electron/main/ai/assistant/builtins/ 中，首次启动时复制到 userData。
+ * 内置助手作为模板目录打包在 electron/main/ai/assistant/builtins/ 中，
+ * 用户通过"助手市场"导入后才会复制到 userData。general 助手自动导入。
  */
 export interface AssistantConfig {
   /** 助手唯一标识 */
   id: string
   /** 助手显示名称 */
   name: string
-  /** 助手简介 */
-  description: string
 
   /** 系统提示词（替代旧的 PromptConfig.roleDefinition） */
   systemPrompt: string
@@ -34,18 +33,16 @@ export interface AssistantConfig {
    */
   allowedBuiltinTools?: string[]
 
-  /** 声明式 SQL 技能（Phase 2） */
-  customSkills?: CustomSkillDef[]
+  /** 用户自定义声明式 SQL 工具 */
+  customSqlTools?: CustomSqlToolDef[]
 
-  /** 配置版本号，用于内置助手的版本比对更新 */
+  /** 配置版本号，用于内置助手的版本比对 */
   version: number
   /**
    * 内置助手来源标识
-   * 非空 = 该配置派生自某个内置助手（值为内置助手的 id）
+   * 非空 = 该配置由某个内置助手导入而来（值为内置助手的 id）
    */
   builtinId?: string
-  /** 用户是否修改过内置助手的默认值（用于版本更新时判断是否可以覆盖） */
-  isUserModified?: boolean
   /** 助手排序权重（越小越靠前，默认 100） */
   order?: number
 
@@ -67,32 +64,48 @@ export interface AssistantConfig {
 }
 
 /**
- * 传递给前端的助手摘要信息（不含 systemPrompt 等大字段）
+ * 传递给前端的助手摘要信息
  */
 export interface AssistantSummary {
   id: string
   name: string
-  description: string
+  systemPrompt: string
   presetQuestions: string[]
   order?: number
   builtinId?: string
-  isUserModified?: boolean
   applicableChatTypes?: ('group' | 'private')[]
   supportedLocales?: string[]
 }
 
-// ==================== 声明式 SQL 技能（Phase 2） ====================
+/**
+ * 助手市场中的内置助手信息（模板目录项）
+ */
+export interface BuiltinAssistantInfo {
+  id: string
+  name: string
+  systemPrompt: string
+  version: number
+  order?: number
+  applicableChatTypes?: ('group' | 'private')[]
+  supportedLocales?: string[]
+  /** 用户是否已导入该助手 */
+  imported: boolean
+  /** 已导入的助手是否有新版本可用 */
+  hasUpdate: boolean
+}
+
+// ==================== 声明式 SQL 工具 ====================
 
 /**
- * 自定义 SQL 技能定义
+ * 声明式 SQL 工具定义
  *
- * 每个技能在 LLM 眼中是一个 Function Calling 工具，
+ * 每个定义在 LLM 眼中是一个 Function Calling 工具，
  * 执行时通过参数化 SQL 查询数据库，将结果格式化为文本返回给 LLM。
  */
-export interface CustomSkillDef {
-  /** 技能名称（作为 Function Calling 的 tool name） */
+export interface CustomSqlToolDef {
+  /** 工具名称（作为 Function Calling 的 tool name） */
   name: string
-  /** 技能描述（作为 Function Calling 的 tool description） */
+  /** 工具描述（作为 Function Calling 的 tool description） */
   description: string
   /**
    * 参数定义（标准 JSON Schema 格式）
@@ -114,7 +127,7 @@ export interface CustomSkillDef {
   parameters: JsonSchemaObject
 
   /** 执行配置 */
-  execution: SqlSkillExecution
+  execution: SqlToolExecution
 }
 
 /**
@@ -137,9 +150,9 @@ export interface JsonSchemaProperty {
 }
 
 /**
- * SQL 技能执行配置
+ * SQL 工具执行配置
  */
-export interface SqlSkillExecution {
+export interface SqlToolExecution {
   /** 执行类型（目前仅支持 sqlite） */
   type: 'sqlite'
   /**
@@ -172,17 +185,13 @@ export interface SqlSkillExecution {
 // ==================== 助手管理器相关 ====================
 
 /**
- * AssistantManager 初始化/同步的结果
+ * AssistantManager 初始化结果
  */
-export interface AssistantSyncResult {
+export interface AssistantInitResult {
   /** 加载的助手总数 */
   total: number
-  /** 新增的内置助手数 */
-  added: number
-  /** 自动更新的内置助手数（未被用户修改的） */
-  updated: number
-  /** 跳过更新的助手数（已被用户修改） */
-  skipped: number
+  /** general 助手是否为首次自动导入 */
+  generalCreated: boolean
 }
 
 /**
@@ -191,4 +200,14 @@ export interface AssistantSyncResult {
 export interface AssistantSaveResult {
   success: boolean
   error?: string
+}
+
+/**
+ * 内置 SQL 工具的精简信息（供前端展示勾选列表）
+ */
+export interface BuiltinSqlToolInfo {
+  /** 工具名称（唯一标识，同 CustomSqlToolDef.name） */
+  name: string
+  /** 工具中文描述 */
+  description: string
 }

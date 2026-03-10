@@ -628,6 +628,51 @@ export function registerAIHandlers({ win }: IpcContext): void {
     }
   })
 
+  ipcMain.handle('assistant:getBuiltinSqlTools', async () => {
+    try {
+      return assistantManager.getBuiltinSqlToolCatalog()
+    } catch (error) {
+      console.error('Failed to get builtin sql tools:', error)
+      return []
+    }
+  })
+
+  ipcMain.handle('assistant:getBuiltinTsToolNames', async () => {
+    try {
+      return assistantManager.getBuiltinTsToolNames()
+    } catch (error) {
+      console.error('Failed to get builtin ts tool names:', error)
+      return []
+    }
+  })
+
+  ipcMain.handle('assistant:getBuiltinCatalog', async () => {
+    try {
+      return assistantManager.getBuiltinCatalog()
+    } catch (error) {
+      console.error('Failed to get builtin catalog:', error)
+      return []
+    }
+  })
+
+  ipcMain.handle('assistant:import', async (_, builtinId: string) => {
+    try {
+      return assistantManager.importAssistant(builtinId)
+    } catch (error) {
+      console.error('Failed to import assistant:', error)
+      return { success: false, error: String(error) }
+    }
+  })
+
+  ipcMain.handle('assistant:reimport', async (_, id: string) => {
+    try {
+      return assistantManager.reimportAssistant(id)
+    } catch (error) {
+      console.error('Failed to reimport assistant:', error)
+      return { success: false, error: String(error) }
+    }
+  })
+
   ipcMain.handle(
     'assistant:backupOldPresets',
     async (

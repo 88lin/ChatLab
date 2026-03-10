@@ -20,6 +20,7 @@ import {
   createGetSessionMessages,
   createGetSessionSummaries,
   createSemanticSearchMessages,
+  sqlToolFactories,
 } from './definitions'
 import { isEmbeddingEnabled } from '../rag'
 import { t as i18nT } from '../../i18n'
@@ -43,6 +44,7 @@ const coreFactories: ToolFactory[] = [
   createSearchSessions,
   createGetSessionMessages,
   createGetSessionSummaries,
+  ...sqlToolFactories,
 ]
 
 /**

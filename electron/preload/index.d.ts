@@ -682,11 +682,10 @@ interface AgentApi {
 interface AssistantSummary {
   id: string
   name: string
-  description: string
+  systemPrompt: string
   presetQuestions: string[]
   order?: number
   builtinId?: string
-  isUserModified?: boolean
   applicableChatTypes?: ('group' | 'private')[]
   supportedLocales?: string[]
 }
@@ -694,18 +693,33 @@ interface AssistantSummary {
 interface AssistantConfigFull {
   id: string
   name: string
-  description: string
   systemPrompt: string
   responseRules?: string
   presetQuestions: string[]
   allowedBuiltinTools?: string[]
-  customSkills?: unknown[]
+  customSqlTools?: unknown[]
   version: number
   builtinId?: string
-  isUserModified?: boolean
   order?: number
   applicableChatTypes?: ('group' | 'private')[]
   supportedLocales?: string[]
+}
+
+interface BuiltinAssistantInfo {
+  id: string
+  name: string
+  systemPrompt: string
+  version: number
+  order?: number
+  applicableChatTypes?: ('group' | 'private')[]
+  supportedLocales?: string[]
+  imported: boolean
+  hasUpdate: boolean
+}
+
+interface BuiltinSqlToolInfo {
+  name: string
+  description: string
 }
 
 interface AssistantApi {
@@ -715,6 +729,11 @@ interface AssistantApi {
   create: (config: Omit<AssistantConfigFull, 'id' | 'version'>) => Promise<{ success: boolean; id?: string; error?: string }>
   delete: (id: string) => Promise<{ success: boolean; error?: string }>
   reset: (id: string) => Promise<{ success: boolean; error?: string }>
+  getBuiltinCatalog: () => Promise<BuiltinAssistantInfo[]>
+  getBuiltinSqlTools: () => Promise<BuiltinSqlToolInfo[]>
+  getBuiltinTsToolNames: () => Promise<string[]>
+  importAssistant: (builtinId: string) => Promise<{ success: boolean; error?: string }>
+  reimportAssistant: (id: string) => Promise<{ success: boolean; error?: string }>
   backupOldPresets: (data: {
     customPresets?: unknown[]
     builtinOverrides?: Record<string, unknown>
@@ -935,6 +954,8 @@ export {
   AssistantApi,
   AssistantSummary,
   AssistantConfigFull,
+  BuiltinAssistantInfo,
+  BuiltinSqlToolInfo,
   CacheApi,
   NetworkApi,
   NlpApi,

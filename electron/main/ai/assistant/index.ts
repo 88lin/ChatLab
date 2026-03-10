@@ -12,5 +12,9 @@ export {
   createAssistant,
   deleteAssistant,
   resetAssistant,
+  getBuiltinCatalog,
+  importAssistant,
+  reimportAssistant,
   backupOldPromptPresets,
 } from './manager'
+export { getBuiltinSqlToolCatalog, getBuiltinTsToolNames } from './builtinSqlTools'

@@ -667,11 +667,10 @@ export const llmApi = {
 export interface AssistantSummary {
   id: string
   name: string
-  description: string
+  systemPrompt: string
   presetQuestions: string[]
   order?: number
   builtinId?: string
-  isUserModified?: boolean
   applicableChatTypes?: ('group' | 'private')[]
   supportedLocales?: string[]
 }
@@ -679,18 +678,33 @@ export interface AssistantSummary {
 export interface AssistantConfigFull {
   id: string
   name: string
-  description: string
   systemPrompt: string
   responseRules?: string
   presetQuestions: string[]
   allowedBuiltinTools?: string[]
-  customSkills?: unknown[]
+  customSqlTools?: unknown[]
   version: number
   builtinId?: string
-  isUserModified?: boolean
   order?: number
   applicableChatTypes?: ('group' | 'private')[]
   supportedLocales?: string[]
+}
+
+export interface BuiltinAssistantInfo {
+  id: string
+  name: string
+  systemPrompt: string
+  version: number
+  order?: number
+  applicableChatTypes?: ('group' | 'private')[]
+  supportedLocales?: string[]
+  imported: boolean
+  hasUpdate: boolean
+}
+
+export interface BuiltinSqlToolInfo {
+  name: string
+  description: string
 }
 
 export const assistantApi = {
@@ -721,6 +735,26 @@ export const assistantApi = {
 
   reset: (id: string): Promise<{ success: boolean; error?: string }> => {
     return ipcRenderer.invoke('assistant:reset', id)
+  },
+
+  getBuiltinCatalog: (): Promise<BuiltinAssistantInfo[]> => {
+    return ipcRenderer.invoke('assistant:getBuiltinCatalog')
+  },
+
+  getBuiltinSqlTools: (): Promise<BuiltinSqlToolInfo[]> => {
+    return ipcRenderer.invoke('assistant:getBuiltinSqlTools')
+  },
+
+  getBuiltinTsToolNames: (): Promise<string[]> => {
+    return ipcRenderer.invoke('assistant:getBuiltinTsToolNames')
+  },
+
+  importAssistant: (builtinId: string): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('assistant:import', builtinId)
+  },
+
+  reimportAssistant: (id: string): Promise<{ success: boolean; error?: string }> => {
+    return ipcRenderer.invoke('assistant:reimport', id)
   },
 
   backupOldPresets: (data: {

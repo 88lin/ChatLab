@@ -196,6 +196,88 @@ Returned summaries are brief descriptions of each session, helping quickly locat
           end_time: 'End time, format "YYYY-MM-DD HH:mm"',
         },
       },
+      // ===== SQL Analysis Tools =====
+      daily_message_type_breakdown: {
+        desc: 'Break down message types over the last N days (text, image, voice, emoji, etc.). Useful for understanding communication preferences.',
+        params: { days: 'Number of recent days to analyze' },
+        rowTemplate: '{type_name}: {msg_count} messages ({percentage}%)',
+        summaryTemplate: 'Message type distribution ({rowCount} types):',
+        fallback: 'No messages found in this time range',
+      },
+      peak_chat_hours_by_member: {
+        desc: 'Analyze a specific member\'s hourly message distribution over the last N days to find their most active hours. Requires member_id from get_group_members.',
+        params: {
+          member_id: 'Member ID (from get_group_members)',
+          days: 'Number of recent days to analyze',
+        },
+        rowTemplate: '{hour}:00 — {msg_count} messages',
+        summaryTemplate: 'Message volume by hour ({rowCount} active hours):',
+        fallback: 'This member has no messages in the specified time range',
+      },
+      member_activity_trend: {
+        desc: 'View a specific member\'s daily message count trend over the last N days. Useful for observing whether someone is becoming more or less active. Requires member_id from get_group_members.',
+        params: {
+          member_id: 'Member ID (from get_group_members)',
+          days: 'Number of recent days to view',
+        },
+        rowTemplate: '{day}: {msg_count} messages',
+        summaryTemplate: 'This member was active on {rowCount} days:',
+        fallback: 'This member has no messages in the specified time range',
+      },
+      silent_members: {
+        desc: 'Detect "silent members" who haven\'t sent messages for more than N days. Useful for identifying at-risk users in community management.',
+        params: { days: 'Days of silence to qualify' },
+        rowTemplate: '{name} — silent for {silent_days} days',
+        summaryTemplate: 'Found {rowCount} silent members:',
+        fallback: 'No members found who have been silent for that long. Community engagement is healthy!',
+      },
+      reply_interaction_ranking: {
+        desc: 'Analyze reply interaction rankings in the group — who replies to whom the most. Useful for discovering core interaction relationships and key opinion leaders.',
+        params: {
+          days: 'Number of recent days to analyze',
+          limit: 'Number of top interaction pairs to return',
+        },
+        rowTemplate: '{replier_name} → {original_name}: {reply_count} replies',
+        summaryTemplate: 'Top {rowCount} reply interactions:',
+        fallback: 'No reply interactions found in this time range',
+      },
+      mutual_interaction_pairs: {
+        desc: 'Find the most frequently interacting member pairs, based on bidirectional message timing (if one person speaks and another responds within 5 minutes, it counts as an interaction). Useful for discovering close friendships.',
+        params: {
+          days: 'Number of recent days to analyze',
+          limit: 'Number of top pairs to return',
+        },
+        rowTemplate: '{member_a} ↔ {member_b}: {interaction_count} interactions',
+        summaryTemplate: 'Top {rowCount} most interactive pairs:',
+        fallback: 'No significant interaction patterns detected in this time range',
+      },
+      member_message_length_stats: {
+        desc: 'Analyze average message length per member (text messages only). Longer messages often indicate more thoughtful communication. Useful for finding deep communicators.',
+        params: {
+          days: 'Number of recent days to analyze',
+          top_n: 'Number of top members to return',
+        },
+        rowTemplate: '{name} — avg {avg_length} chars/msg ({msg_count} msgs, max {max_length} chars)',
+        summaryTemplate: 'Message length Top {rowCount} (longer = more thoughtful):',
+        fallback: 'Not enough text message data in this time range',
+      },
+      unanswered_messages: {
+        desc: 'Find messages in the last N days that may not have been replied to — potential unresolved customer issues. Only counts text messages over 10 characters (filters out short greetings).',
+        params: {
+          days: 'Number of recent days to search',
+          limit: 'Maximum number of results',
+        },
+        rowTemplate: '[{send_time}] {sender_name}: {content_preview}',
+        summaryTemplate: 'Found {rowCount} potentially unanswered messages:',
+        fallback: 'All messages have been replied to in this time range. Great service quality!',
+      },
+      message_type_distribution: {
+        desc: 'Analyze message type distribution over the last N days (text, image, voice, file, etc.). Helps understand communication preferences and optimization opportunities.',
+        params: { days: 'Number of recent days to analyze' },
+        rowTemplate: '{type_name}: {msg_count} messages ({percentage}%)',
+        summaryTemplate: 'Message type distribution ({rowCount} types):',
+        fallback: 'No messages found in this time range',
+      },
     },
 
     // ===== AI Agent system prompts =====

@@ -6,7 +6,7 @@
 import { getActiveConfig, buildPiModel } from '../llm'
 import { getAllTools } from '../tools'
 import type { ToolContext, OwnerInfo } from '../tools/types'
-import { createSkillTools } from '../assistant/skillRunner'
+import { createSqlTools } from '../assistant/sqlToolRunner'
 import { getHistoryForAgent } from '../conversations'
 import { aiLogger, isDebugMode } from '../logger'
 import { t as i18nT } from '../../i18n'
@@ -155,10 +155,9 @@ export class Agent {
     const toolContext = { ...this.context, locale: this.locale }
     const piTools = getAllTools(toolContext, allowedTools)
 
-    // 合并声明式 SQL 技能（Phase 2）
-    if (this.assistantConfig?.customSkills?.length) {
-      const skillTools = createSkillTools(this.assistantConfig.customSkills, toolContext)
-      piTools.push(...skillTools)
+    // 用户自定义 SQL 工具（内置 SQL 工具已由 getAllTools 统一管控）
+    if (this.assistantConfig?.customSqlTools?.length) {
+      piTools.push(...createSqlTools(this.assistantConfig.customSqlTools, toolContext))
     }
 
     coreAgent.setTools(maxToolRounds > 0 ? piTools : [])

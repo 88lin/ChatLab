@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
 import { useAssistantStore } from '@/stores/assistant'
 import AssistantCard from './AssistantCard.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   chatType: 'group' | 'private'
@@ -12,12 +15,11 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [id: string]
   configure: [id: string]
+  market: []
 }>()
 
 const assistantStore = useAssistantStore()
-const { defaultAssistants, moreAssistants, hasMoreAssistants, isLoaded } = storeToRefs(assistantStore)
-
-const showMore = ref(false)
+const { filteredAssistants, isLoaded } = storeToRefs(assistantStore)
 
 watch(
   () => [props.chatType, props.locale],
@@ -44,70 +46,42 @@ function handleConfigure(id: string) {
 </script>
 
 <template>
-  <div class="flex h-full flex-col items-center justify-center p-8">
-    <div class="w-full max-w-2xl">
+  <div class="flex h-full flex-col items-center p-8">
+    <div class="flex w-full max-w-4xl flex-col" style="max-height: 100%">
       <!-- 标题 -->
-      <div class="mb-8 text-center">
-        <h2 class="mb-2 text-xl font-bold text-gray-900 dark:text-gray-100">
-          选择一个助手开始对话
-        </h2>
-        <p class="text-sm text-gray-500 dark:text-gray-400">
-          每个助手擅长不同类型的分析任务，选择最适合你需求的助手
-        </p>
+      <div class="mb-8 shrink-0 text-center">
+        <h2 class="mb-2 text-xl font-bold text-gray-900 dark:text-gray-100">{{ t('ai.assistant.selector.title') }}</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('ai.assistant.selector.subtitle') }}</p>
       </div>
 
       <!-- 无可用助手提示 -->
-      <div v-if="defaultAssistants.length === 0 && !hasMoreAssistants" class="py-8 text-center text-sm text-gray-400">
-        当前场景暂无可用助手
+      <div v-if="filteredAssistants.length === 0" class="py-8 text-center text-sm text-gray-400">
+        {{ t('ai.assistant.selector.noAssistants') }}
       </div>
 
-      <!-- 默认助手（前 4 个） -->
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <AssistantCard
-          v-for="assistant in defaultAssistants"
-          :key="assistant.id"
-          :assistant="assistant"
-          @select="handleSelect"
-          @configure="handleConfigure"
-        />
+      <!-- 助手卡片可滚动区域 -->
+      <div class="max-h-[40vh] overflow-y-auto pr-1">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <AssistantCard
+            v-for="assistant in filteredAssistants"
+            :key="assistant.id"
+            :assistant="assistant"
+            @select="handleSelect"
+            @configure="handleConfigure"
+          />
+        </div>
       </div>
 
-      <!-- 更多助手 -->
-      <div v-if="hasMoreAssistants" class="mt-4">
+      <!-- 管理助手入口 -->
+      <div class="mt-6 shrink-0 text-center">
         <button
-          v-if="!showMore"
-          class="mx-auto flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-          @click="showMore = true"
+          class="inline-flex items-center gap-1.5 text-sm text-gray-400 transition-colors hover:text-primary-500 dark:text-gray-500 dark:hover:text-primary-400"
+          @click="emit('market')"
         >
-          <UIcon name="i-heroicons-chevron-down" class="h-4 w-4" />
-          <span>更多助手 ({{ moreAssistants.length }})</span>
+          <UIcon name="i-heroicons-cog-6-tooth" class="h-4 w-4" />
+          <span>{{ t('ai.assistant.selector.manage') }}</span>
         </button>
-
-        <Transition name="expand">
-          <div v-if="showMore" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <AssistantCard
-              v-for="assistant in moreAssistants"
-              :key="assistant.id"
-              :assistant="assistant"
-              @select="handleSelect"
-              @configure="handleConfigure"
-            />
-          </div>
-        </Transition>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.expand-enter-active,
-.expand-leave-active {
-  transition: all 0.3s ease-out;
-  overflow: hidden;
-}
-.expand-enter-from,
-.expand-leave-to {
-  opacity: 0;
-  transform: translateY(-10px);
-}
-</style>
