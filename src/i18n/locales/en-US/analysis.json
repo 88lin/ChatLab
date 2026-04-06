@@ -32,7 +32,7 @@
     "chatViewer": "Chat Record Viewer",
     "sessionIndex": "Session Index",
     "incrementalImport": "Import More",
-    "memberManagement": "Member Management"
+    "memberManagement": "Manage Member"
   },
   "incremental": {
     "title": "Append Chat Records",
@@ -110,7 +110,7 @@
     "tools": "Quick Tools"
   },
   "messageExport": {
-    "title": "Export Chat Records"
+    "title": "Export Records"
   },
   "filter": {
     "title": "Filter Analysis",
