@@ -1,5 +1,29 @@
 [
   {
+    "version": "0.18.4",
+    "date": "2026-04-29",
+    "summary": "This update optimizes model stability, supports fetching remote model lists, improves AI error detail presentation, and refines some styles.",
+    "changes": [
+      {
+        "type": "feat",
+        "items": [
+          "Support fetching remote model lists.",
+          "Auto-complete `/v1` for OpenAI-compatible API addresses with real-time preview support.",
+          "Improve the presentation of AI chat error details.",
+          "Refine parts of the display styling."
+        ]
+      },
+      {
+        "type": "fix",
+        "items": ["Fix some logic vulnerabilities."]
+      },
+      {
+        "type": "chore",
+        "items": ["Optimize the logic of the sync-changelog skill."]
+      }
+    ]
+  },
+  {
     "version": "0.18.3",
     "date": "2026-04-28",
     "summary": "This release adds configurable quick tool entry placement, improves the default time filter, and fixes modal layering and data directory safety messaging.",
