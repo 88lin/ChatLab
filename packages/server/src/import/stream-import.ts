@@ -62,7 +62,7 @@ function generateSessionId(): string {
 export async function streamImport(
   dbManager: DatabaseManager,
   filePath: string,
-  options?: StreamImportOptions,
+  options?: StreamImportOptions
 ): Promise<StreamImportResult> {
   const { formatId, chatIndex, nativeBinding, onProgress } = options || {}
 
@@ -89,12 +89,18 @@ export async function streamImport(
             messagesProcessed: p.messagesProcessed,
           })
         },
-        onMeta: (m) => { meta = m },
-        onMembers: (m) => { members.push(...m) },
-        onMessageBatch: (m) => { messages.push(...m) },
+        onMeta: (m) => {
+          meta = m
+        },
+        onMembers: (m) => {
+          members.push(...m)
+        },
+        onMessageBatch: (m) => {
+          messages.push(...m)
+        },
         formatOptions,
       },
-      formatId,
+      formatId
     )
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
@@ -121,7 +127,7 @@ export async function streamImport(
 
     db.prepare(
       `INSERT INTO meta (name, platform, type, imported_at, group_id, group_avatar, owner_id, schema_version)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 4)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, 4)`
     ).run(
       parsedMeta.name,
       parsedMeta.platform,
@@ -129,12 +135,12 @@ export async function streamImport(
       Math.floor(Date.now() / 1000),
       parsedMeta.groupId || null,
       parsedMeta.groupAvatar || null,
-      parsedMeta.ownerId || null,
+      parsedMeta.ownerId || null
     )
 
     const insertMember = db.prepare(
       `INSERT OR IGNORE INTO member (platform_id, account_name, group_nickname, avatar, roles)
-       VALUES (?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?)`
     )
     for (const m of members) {
       insertMember.run(
@@ -142,7 +148,7 @@ export async function streamImport(
         m.accountName || m.platformId,
         m.groupNickname || null,
         m.avatar || null,
-        m.roles ? JSON.stringify(m.roles) : '[]',
+        m.roles ? JSON.stringify(m.roles) : '[]'
       )
     }
 
@@ -150,7 +156,7 @@ export async function streamImport(
 
     const insertMsg = db.prepare(
       `INSERT INTO message (sender_id, sender_account_name, sender_group_nickname, ts, type, content, reply_to_message_id, platform_message_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     )
 
     let written = 0
@@ -162,8 +168,16 @@ export async function streamImport(
         for (const msg of batch) {
           let senderId = memberIdMap.get(msg.senderPlatformId)
           if (!senderId) {
-            insertMember.run(msg.senderPlatformId, msg.senderAccountName || msg.senderPlatformId, msg.senderGroupNickname || null, null, '[]')
-            senderId = (db.prepare('SELECT id FROM member WHERE platform_id = ?').get(msg.senderPlatformId) as { id: number })?.id
+            insertMember.run(
+              msg.senderPlatformId,
+              msg.senderAccountName || msg.senderPlatformId,
+              msg.senderGroupNickname || null,
+              null,
+              '[]'
+            )
+            senderId = (
+              db.prepare('SELECT id FROM member WHERE platform_id = ?').get(msg.senderPlatformId) as { id: number }
+            )?.id
             if (senderId) memberIdMap.set(msg.senderPlatformId, senderId)
           }
           if (!senderId) continue
@@ -176,7 +190,7 @@ export async function streamImport(
             msg.type,
             msg.content,
             msg.replyToMessageId || null,
-            msg.platformMessageId || null,
+            msg.platformMessageId || null
           )
           written++
         }
@@ -215,9 +229,21 @@ export async function streamImport(
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    try { fs.unlinkSync(dbPath) } catch { /* ignore */ }
-    try { fs.unlinkSync(dbPath + '-wal') } catch { /* ignore */ }
-    try { fs.unlinkSync(dbPath + '-shm') } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(dbPath)
+    } catch {
+      /* ignore */
+    }
+    try {
+      fs.unlinkSync(dbPath + '-wal')
+    } catch {
+      /* ignore */
+    }
+    try {
+      fs.unlinkSync(dbPath + '-shm')
+    } catch {
+      /* ignore */
+    }
     onProgress?.({ stage: 'error', progress: 0, message: msg })
     return { success: false, error: msg }
   }

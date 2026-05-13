@@ -24,13 +24,7 @@ import {
   getDatabaseSchema,
   executeReadonlySql,
 } from '@openchatlab/core'
-import {
-  streamImport,
-  detectFormat,
-  detectAllFormats,
-  getSupportedFormats,
-  scanMultiChatFile,
-} from '../../import'
+import { streamImport, detectFormat, detectAllFormats, getSupportedFormats, scanMultiChatFile } from '../../import'
 
 function resolveNativeBinding(): string | undefined {
   if (process.versions.electron) return undefined
@@ -418,8 +412,16 @@ export async function registerWebRoutes(server: FastifyInstance, dbManager: Data
       const allFormats = detectAllFormats(tmpPath)
       return { format, allFormats }
     } finally {
-      try { fs.unlinkSync(tmpPath) } catch { /* ignore */ }
-      try { fs.rmdirSync(tmpDir) } catch { /* ignore */ }
+      try {
+        fs.unlinkSync(tmpPath)
+      } catch {
+        /* ignore */
+      }
+      try {
+        fs.rmdirSync(tmpDir)
+      } catch {
+        /* ignore */
+      }
     }
   })
 
@@ -440,8 +442,16 @@ export async function registerWebRoutes(server: FastifyInstance, dbManager: Data
       const chats = await scanMultiChatFile(tmpPath)
       return { chats }
     } finally {
-      try { fs.unlinkSync(tmpPath) } catch { /* ignore */ }
-      try { fs.rmdirSync(tmpDir) } catch { /* ignore */ }
+      try {
+        fs.unlinkSync(tmpPath)
+      } catch {
+        /* ignore */
+      }
+      try {
+        fs.rmdirSync(tmpDir)
+      } catch {
+        /* ignore */
+      }
     }
   })
 
@@ -465,7 +475,7 @@ export async function registerWebRoutes(server: FastifyInstance, dbManager: Data
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      Connection: 'keep-alive',
     })
 
     function sendEvent(event: string, data: unknown) {
@@ -497,8 +507,16 @@ export async function registerWebRoutes(server: FastifyInstance, dbManager: Data
       sendEvent('error', { success: false, error: err instanceof Error ? err.message : String(err) })
     } finally {
       reply.raw.end()
-      try { fs.unlinkSync(tmpPath) } catch { /* ignore */ }
-      try { fs.rmdirSync(tmpDir) } catch { /* ignore */ }
+      try {
+        fs.unlinkSync(tmpPath)
+      } catch {
+        /* ignore */
+      }
+      try {
+        fs.rmdirSync(tmpDir)
+      } catch {
+        /* ignore */
+      }
     }
   })
 }

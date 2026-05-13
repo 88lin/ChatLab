@@ -106,6 +106,41 @@ export interface MessageLengthDistribution {
   grouped: Array<{ range: string; count: number }>
 }
 
+// ==================== 导入相关 ====================
+
+export interface ImportProgress {
+  stage: 'detecting' | 'parsing' | 'saving' | 'indexing' | 'done' | 'error'
+  progress: number
+  message: string
+  bytesRead?: number
+  totalBytes?: number
+  messagesProcessed?: number
+}
+
+export interface ImportResult {
+  success: boolean
+  sessionId?: string
+  error?: string
+  messageCount?: number
+  memberCount?: number
+}
+
+export interface FormatInfo {
+  id: string
+  name: string
+  platform: string
+  extensions: string[]
+  multiChat?: boolean
+}
+
+export interface MultiChatEntry {
+  index: number
+  name: string
+  type: string
+  id: number
+  messageCount: number
+}
+
 // ==================== 核心适配器接口 ====================
 
 export interface QueryAdapter {
@@ -171,6 +206,17 @@ export interface QueryAdapter {
 
   executeSQL(sessionId: string, sql: string): Promise<SQLResult>
   getSchema(sessionId: string): Promise<TableSchema[]>
+
+  // ==================== 导入管线 ====================
+
+  importFile(
+    file: File,
+    options?: { formatId?: string; chatIndex?: number },
+    onProgress?: (p: ImportProgress) => void
+  ): Promise<ImportResult>
+  detectFormat(file: File): Promise<FormatInfo | null>
+  scanMultiChatFile(file: File): Promise<MultiChatEntry[]>
+  getSupportedFormats(): Promise<FormatInfo[]>
 
   // ==================== 插件系统（能力依赖） ====================
 

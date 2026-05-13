@@ -119,46 +119,120 @@ async function checkImportLog() {
   hasImportLog.value = result.success && !!result.path
 }
 
+const dropZoneRef = ref<InstanceType<typeof FileDropZone> | null>(null)
+
 // 处理文件选择（点击选择）- 支持多选
 async function handleClickImport() {
-  if (!IS_ELECTRON) return
   importError.value = null
   hasImportLog.value = false
   importDiagnostics.value = null
 
-  // 使用系统对话框选择多个文件
-  const result = await window.api.dialog.showOpenDialog({
-    title: t('home.import.selectFiles'),
-    properties: ['openFile', 'multiSelections'],
-    filters: [
-      { name: t('home.import.chatRecords'), extensions: ['json', 'jsonl', 'txt'] },
-      { name: t('home.import.allFiles'), extensions: ['*'] },
-    ],
-  })
-
-  if (result.canceled || result.filePaths.length === 0) {
-    return
+  if (IS_ELECTRON) {
+    const result = await window.api.dialog.showOpenDialog({
+      title: t('home.import.selectFiles'),
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: t('home.import.chatRecords'), extensions: ['json', 'jsonl', 'txt'] },
+        { name: t('home.import.allFiles'), extensions: ['*'] },
+      ],
+    })
+    if (result.canceled || result.filePaths.length === 0) return
+    await processFilePaths(result.filePaths)
+  } else {
+    dropZoneRef.value?.openFileDialog()
   }
-
-  await processFilePaths(result.filePaths)
 }
 
-// 处理文件拖拽 - 支持多选 - Electron only
-async function handleFileDrop({ paths }: { files: File[]; paths: string[] }) {
-  if (!IS_ELECTRON) return
-  if (paths.length === 0) {
+// 处理文件拖拽/选择 - 支持 Electron 路径和 Web File 对象
+async function handleFileDrop({ files, paths }: { files: File[]; paths: string[] }) {
+  importError.value = null
+  hasImportLog.value = false
+  importDiagnostics.value = null
+
+  if (IS_ELECTRON && paths.length > 0) {
+    await processFilePaths(paths)
+  } else if (files.length > 0) {
+    await processWebFiles(files)
+  } else {
     importError.value = t('home.import.cannotReadPath')
-    return
   }
-
-  importError.value = null
-  hasImportLog.value = false
-  importDiagnostics.value = null
-
-  await processFilePaths(paths)
 }
 
-// 统一处理文件路径（单文件或多文件）
+// Web 模式：使用 adapter 导入 File 对象
+async function processWebFiles(files: File[]) {
+  const adapter = getAdapter()
+
+  if (files.length === 1) {
+    const file = files[0]
+
+    const format = await adapter.detectFormat(file)
+    if (format?.multiChat) {
+      pendingWebFile.value = file
+      const chats = await adapter.scanMultiChatFile(file)
+      if (chats.length > 0) {
+        webMultiChats.value = chats.map((c) => ({
+          index: c.index,
+          name: c.name,
+          type: c.type,
+          id: c.id,
+          messageCount: c.messageCount,
+        }))
+        showChatSelector.value = true
+        return
+      }
+    }
+
+    if (!format) {
+      pendingFormatFile.value = file
+      formatSelectorFilePath.value = file.name
+    }
+
+    await importSingleWebFile(file)
+  } else {
+    for (const file of files) {
+      await importSingleWebFile(file)
+    }
+  }
+}
+
+const pendingWebFile = ref<File | null>(null)
+const webMultiChats = ref<ChatInfo[]>([])
+
+async function importSingleWebFile(file: File, options?: { formatId?: string; chatIndex?: number }) {
+  const adapter = getAdapter()
+
+  isImporting.value = true
+  importProgress.value = { stage: 'detecting', progress: 0, message: '' }
+
+  try {
+    const result = await adapter.importFile(file, options, (p) => {
+      if (p.stage === 'done') return
+      importProgress.value = p
+    })
+
+    if (importProgress.value) {
+      importProgress.value.progress = 100
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    if (result.success && result.sessionId) {
+      await sessionStore.loadSessions()
+      sessionStore.selectSession(result.sessionId)
+      await navigateToSession(result.sessionId)
+    } else {
+      importError.value = translateError(result.error || 'error.import_failed')
+    }
+  } catch (error) {
+    importError.value = String(error)
+  } finally {
+    isImporting.value = false
+    setTimeout(() => {
+      importProgress.value = null
+    }, 500)
+  }
+}
+
+// 统一处理文件路径（单文件或多文件）- Electron only
 async function processFilePaths(paths: string[]) {
   // 单文件 或 未启用合并导入 - 使用原有逻辑
   if (paths.length === 1 || !mergeImportEnabled.value) {
@@ -207,8 +281,17 @@ async function processFilePaths(paths: string[]) {
   await sessionStore.mergeImportFiles(paths)
 }
 
+const pendingFormatFile = ref<File | null>(null)
+
 // 手动格式选择后的导入处理
 async function handleFormatSelect(formatId: string) {
+  if (!IS_ELECTRON && pendingFormatFile.value) {
+    const file = pendingFormatFile.value
+    pendingFormatFile.value = null
+    await importSingleWebFile(file, { formatId })
+    return
+  }
+
   const filePath = formatSelectorFilePath.value
   if (!filePath) return
 
@@ -253,10 +336,25 @@ async function handleFormatSelect(formatId: string) {
 async function handleChatSelect(selectedChats: ChatInfo[]) {
   if (selectedChats.length === 0) return
 
+  // Web 模式：使用 pendingWebFile + adapter
+  if (!IS_ELECTRON && pendingWebFile.value) {
+    const file = pendingWebFile.value
+    pendingWebFile.value = null
+    webMultiChats.value = []
+
+    if (selectedChats.length === 1) {
+      await importSingleWebFile(file, { chatIndex: selectedChats[0].index })
+    } else {
+      for (const chat of selectedChats) {
+        await importSingleWebFile(file, { chatIndex: chat.index })
+      }
+    }
+    return
+  }
+
   const filePath = chatSelectorFilePath.value
 
   if (selectedChats.length === 1) {
-    // 单个聊天：直接导入
     isImporting.value = true
     importProgress.value = { stage: 'detecting', progress: 0, message: '' }
 
@@ -277,7 +375,6 @@ async function handleChatSelect(selectedChats: ChatInfo[]) {
       if (result.success && result.sessionId) {
         await sessionStore.loadSessions()
         sessionStore.selectSession(result.sessionId)
-        // 自动生成会话索引
         await autoGenerateSessionIndex(result.sessionId)
         await navigateToSession(result.sessionId)
       } else {
@@ -292,7 +389,6 @@ async function handleChatSelect(selectedChats: ChatInfo[]) {
       }, 500)
     }
   } else {
-    // 多个聊天：逐个导入（类似批量导入）
     isBatchImporting.value = true
     batchFiles.value = selectedChats.map((chat) => ({
       path: `${filePath}#${chat.index}`,
@@ -320,7 +416,6 @@ async function handleChatSelect(selectedChats: ChatInfo[]) {
           batchFiles.value[i].status = 'success'
           batchFiles.value[i].sessionId = result.sessionId
           successCount++
-          // 自动生成会话索引
           await autoGenerateSessionIndex(result.sessionId)
         } else {
           batchFiles.value[i].status = 'failed'
@@ -335,10 +430,8 @@ async function handleChatSelect(selectedChats: ChatInfo[]) {
       }
     }
 
-    // 刷新会话列表
     await sessionStore.loadSessions()
 
-    // 转为结果状态
     isBatchImporting.value = false
     batchImportResult.value = {
       total: selectedChats.length,
@@ -681,6 +774,7 @@ const getMergeFileProgressText = (file: MergeFileInfo) =>
     <!-- 默认导入区域（非批量状态） -->
     <FileDropZone
       v-else
+      ref="dropZoneRef"
       :accept="['.json', '.jsonl', '.txt']"
       :disabled="isAnyImporting"
       :multiple="true"

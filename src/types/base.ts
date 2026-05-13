@@ -138,7 +138,7 @@ export interface AnalysisSession {
  * 导入进度回调
  */
 export interface ImportProgress {
-  stage: 'detecting' | 'reading' | 'parsing' | 'saving' | 'done' | 'error'
+  stage: 'detecting' | 'reading' | 'parsing' | 'saving' | 'indexing' | 'done' | 'error'
   progress: number // 0-100
   message?: string
   // 流式解析额外字段

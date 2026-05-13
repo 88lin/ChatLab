@@ -14,6 +14,10 @@ import type {
   PaginatedResult,
   MentionGraphData,
   MessageLengthDistribution,
+  ImportProgress,
+  ImportResult,
+  FormatInfo,
+  MultiChatEntry,
 } from './types'
 import type { AnalysisSession, MessageType } from '@/types/base'
 import type { TimeFilter } from '@openchatlab/shared-types'
@@ -274,6 +278,83 @@ export class FetchAdapter implements QueryAdapter {
 
   getSchema(sessionId: string): Promise<TableSchema[]> {
     return get(`/_web/sessions/${sessionId}/schema`)
+  }
+
+  // ==================== 导入管线 ====================
+
+  async importFile(
+    file: File,
+    options?: { formatId?: string; chatIndex?: number },
+    onProgress?: (p: ImportProgress) => void
+  ): Promise<ImportResult> {
+    const form = new FormData()
+    form.append('file', file)
+    if (options?.formatId) form.append('formatId', options.formatId)
+    if (options?.chatIndex !== undefined) form.append('chatIndex', String(options.chatIndex))
+
+    const res = await fetch('/_web/import', { method: 'POST', body: form })
+
+    if (!res.ok) {
+      const text = await res.text()
+      return { success: false, error: `HTTP ${res.status}: ${text}` }
+    }
+
+    const reader = res.body?.getReader()
+    if (!reader) return { success: false, error: 'No response body' }
+
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let result: ImportResult = { success: false, error: 'Unknown error' }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+
+      let eventType = ''
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          eventType = line.slice(7).trim()
+        } else if (line.startsWith('data: ')) {
+          const data = JSON.parse(line.slice(6))
+          if (eventType === 'progress') {
+            onProgress?.(data as ImportProgress)
+          } else if (eventType === 'done') {
+            result = data as ImportResult
+          } else if (eventType === 'error') {
+            result = data as ImportResult
+          }
+          eventType = ''
+        }
+      }
+    }
+
+    return result
+  }
+
+  async detectFormat(file: File): Promise<FormatInfo | null> {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch('/_web/detect-format', { method: 'POST', body: form })
+    if (!res.ok) return null
+    const data = (await res.json()) as { format: FormatInfo | null }
+    return data.format
+  }
+
+  async scanMultiChatFile(file: File): Promise<MultiChatEntry[]> {
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch('/_web/scan-multi-chat', { method: 'POST', body: form })
+    if (!res.ok) return []
+    const data = (await res.json()) as { chats: MultiChatEntry[] }
+    return data.chats
+  }
+
+  async getSupportedFormats(): Promise<FormatInfo[]> {
+    return get('/_web/supported-formats')
   }
 
   // ==================== 插件系统（不支持） ====================
