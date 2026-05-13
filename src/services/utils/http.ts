@@ -1,0 +1,38 @@
+/**
+ * 通用 HTTP 请求工具
+ *
+ * 供各 FetchXxxAdapter 复用的 GET/POST 封装。
+ */
+
+const BASE = '/_web'
+
+export async function get<T>(path: string): Promise<T> {
+  const resp = await fetch(`${BASE}${path}`)
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '')
+    throw new Error(`HTTP ${resp.status}: ${text}`)
+  }
+  return resp.json() as Promise<T>
+}
+
+export async function post<T>(path: string, body?: unknown): Promise<T> {
+  const resp = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: body != null ? JSON.stringify(body) : undefined,
+  })
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '')
+    throw new Error(`HTTP ${resp.status}: ${text}`)
+  }
+  return resp.json() as Promise<T>
+}
+
+export async function del<T = boolean>(path: string): Promise<T> {
+  const resp = await fetch(`${BASE}${path}`, { method: 'DELETE' })
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '')
+    throw new Error(`HTTP ${resp.status}: ${text}`)
+  }
+  return resp.json() as Promise<T>
+}
