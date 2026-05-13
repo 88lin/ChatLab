@@ -17,6 +17,7 @@ error-log-*.txt
 
 # Project
 dist/
+dist-web/
 packages/server/native/
 .history/
 out
