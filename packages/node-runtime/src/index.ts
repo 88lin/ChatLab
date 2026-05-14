@@ -9,3 +9,23 @@ export { BetterSqliteAdapter, openBetterSqliteDatabase } from './better-sqlite3-
 export { NodePathProvider } from './node-path-provider'
 export { DatabaseManager } from './database-manager'
 export { createJiebaNlpProvider } from './jieba-nlp-provider'
+
+// NLP 分词引擎、词频统计、词库管理
+export {
+  initNlpDir,
+  getNlpDir,
+  getJieba,
+  clearJiebaInstance,
+  segment,
+  batchSegmentWithFrequency,
+  collectPosTagStats,
+  getPosTagDefinitions,
+  computeWordFrequency,
+  segmentText,
+  isDictDownloaded,
+  getDictList,
+  loadDictBuffer,
+  downloadDict,
+  deleteDict,
+  ensureDefaultDict,
+} from './nlp'

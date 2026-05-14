@@ -17,6 +17,7 @@ import { setAuthToken } from './auth'
 import { registerSystemRoutes } from './routes/system'
 import { registerSessionRoutes } from './routes/sessions'
 import { registerWebRoutes } from './routes/web'
+import { registerNlpRoutes } from './routes/nlp'
 
 let server: FastifyInstance | null = null
 let dbManager: DatabaseManager | null = null
@@ -94,6 +95,7 @@ export async function startHttpServer(options?: HttpServerOptions): Promise<{
 
   registerSystemRoutes(server, dbManager)
   registerSessionRoutes(server, dbManager)
+  registerNlpRoutes(server, dbManager)
   registerWebRoutes(server, dbManager)
 
   // 托管 Web SPA 静态资源
@@ -136,3 +138,4 @@ export { createServer } from './server'
 export { registerSystemRoutes } from './routes/system'
 export { registerSessionRoutes } from './routes/sessions'
 export { registerWebRoutes } from './routes/web'
+export { registerNlpRoutes } from './routes/nlp'

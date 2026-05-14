@@ -89,6 +89,33 @@ export type {
   LanguagePreferenceParams,
 } from './query'
 
+// NLP（平台无关的类型、数据和工具函数）
+export {
+  POS_TAG_DEFINITIONS,
+  MEANINGFUL_POS_TAGS,
+  CHINESE_STOPWORDS,
+  ENGLISH_STOPWORDS,
+  JAPANESE_STOPWORDS,
+  getStopwords,
+  isStopword,
+  cleanText,
+  isValidWord,
+} from './nlp'
+export type {
+  SupportedLocale,
+  PosFilterMode,
+  DictType,
+  PosTagInfo,
+  WordFrequencyItem,
+  PosTagStat,
+  WordFrequencyResult,
+  WordFrequencyParams,
+  SegmentOptions,
+  BatchSegmentOptions,
+  BatchSegmentResult,
+  DictInfo,
+} from './nlp'
+
 // Schema 与迁移
 export {
   CURRENT_SCHEMA_VERSION,

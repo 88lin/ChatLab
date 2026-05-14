@@ -99,6 +99,7 @@ async function initWebServeAdapters(): Promise<void> {
   registerAdapter('ai', new WebAIAdapter())
 
   await installChartPluginShims()
+  await installNlpApiShim()
 }
 
 /**
@@ -123,6 +124,20 @@ async function installChartPluginShims(): Promise<void> {
   }
   chatApi.getMemberActivity = (sid: string, f?: any) => dataService.getMemberActivity(sid, f)
   chatApi.getAvailableYears = (sid: string) => dataService.getAvailableYears(sid)
+}
+
+async function installNlpApiShim(): Promise<void> {
+  const { get, post, del } = await import('./utils/http')
+  ;(window as any).nlpApi = {
+    getWordFrequency: (params: unknown) => post('/nlp/word-frequency', params),
+    segmentText: (text: string, locale: string, minLength?: number) =>
+      post('/nlp/segment', { text, locale, minLength }),
+    getPosTags: () => get('/nlp/pos-tags'),
+    getDictList: () => get('/nlp/dicts'),
+    isDictDownloaded: (dictId: string) => get(`/nlp/dicts/${dictId}/status`),
+    downloadDict: (dictId: string) => post(`/nlp/dicts/${dictId}/download`),
+    deleteDict: (dictId: string) => del(`/nlp/dicts/${dictId}`),
+  }
 }
 
 async function initWebBrowserAdapters(): Promise<void> {
