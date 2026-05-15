@@ -8,6 +8,7 @@
 import type { TimeFilter } from '@openchatlab/shared-types'
 import type { DatabaseAdapter } from '../interfaces'
 import { buildTimeFilter, hasTable, hasColumn } from './filters'
+import { FULL_MSG_SELECT, mapMessageRow, type FullMessageRow, type MappedMessage } from './message-sql'
 
 export interface MessageResult {
   id: number
@@ -354,24 +355,15 @@ export interface MemberWithAliases {
 }
 
 /**
- * Batch-load messages by IDs with sender info
+ * Batch-load messages by IDs with full sender info (avatar, aliases, reply, etc.)
  */
-function hydrateMessagesByIds(db: DatabaseAdapter, ids: number[]): ContextMessage[] {
+function hydrateMessagesByIds(db: DatabaseAdapter, ids: number[]): MappedMessage[] {
   if (ids.length === 0) return []
   const placeholders = ids.map(() => '?').join(', ')
-  return db
-    .prepare(
-      `SELECT
-        msg.id as id, m.id as senderId,
-        COALESCE(m.group_nickname, m.account_name, m.platform_id) as senderName,
-        m.platform_id as senderPlatformId,
-        msg.content as content, msg.ts as timestamp
-      FROM message msg
-      JOIN member m ON msg.sender_id = m.id
-      WHERE msg.id IN (${placeholders})
-      ORDER BY msg.id ASC`
-    )
-    .all(...ids) as ContextMessage[]
+  const rows = db
+    .prepare(`${FULL_MSG_SELECT} WHERE msg.id IN (${placeholders}) ORDER BY msg.id ASC`)
+    .all(...ids) as unknown as FullMessageRow[]
+  return rows.map(mapMessageRow)
 }
 
 /**
@@ -382,7 +374,7 @@ export function getMessageContext(
   db: DatabaseAdapter,
   messageIds: number[],
   contextSize: number = 20
-): ContextMessage[] {
+): MappedMessage[] {
   if (messageIds.length === 0) return []
 
   const contextIds = new Set<number>()
@@ -413,7 +405,7 @@ export function getSearchMessageContext(
   messageIds: number[],
   contextBefore: number = 2,
   contextAfter: number = 2
-): ContextMessage[] {
+): MappedMessage[] {
   if (messageIds.length === 0) return []
 
   const contextIds = new Set<number>()
@@ -516,7 +508,7 @@ export function getConversationBetween(
     AND msg.content IS NOT NULL AND msg.content != ''
     ORDER BY msg.ts DESC LIMIT ?
   `
-  const rows = db.prepare(sql).all(memberId1, memberId2, ...timeParams, limit) as ContextMessage[]
+  const rows = db.prepare(sql).all(memberId1, memberId2, ...timeParams, limit) as unknown as ContextMessage[]
 
   return {
     messages: rows.reverse(),
@@ -537,7 +529,7 @@ export function getMemberNameHistory(db: DatabaseAdapter, memberId: number): Mem
       `SELECT name_type as nameType, name, start_ts as startTs, end_ts as endTs
        FROM member_name_history WHERE member_id = ? ORDER BY start_ts DESC`
     )
-    .all(memberId) as MemberNameHistoryEntry[]
+    .all(memberId) as unknown as MemberNameHistoryEntry[]
 }
 
 /**

@@ -69,6 +69,18 @@ export type {
   MemberWithAliases,
 } from './message-queries'
 
+// Shared full-message SQL, types, and mapper
+export {
+  FULL_MSG_COLUMNS,
+  FULL_MSG_FROM,
+  FULL_MSG_SELECT,
+  SYSTEM_MSG_FILTER,
+  TEXT_ONLY_FILTER,
+  mapMessageRow,
+  buildMsgConditions,
+} from './message-sql'
+export type { FullMessageRow, MappedMessage, MsgQueryConditions } from './message-sql'
+
 // Advanced analytics
 export {
   getCatchphraseAnalysis,

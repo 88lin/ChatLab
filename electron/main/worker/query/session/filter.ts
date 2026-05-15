@@ -5,6 +5,7 @@
 
 import { openReadonlyDatabase } from './core'
 import type { FilterMessage, ContextBlock, FilterResultWithPagination } from './types'
+import { FULL_MSG_COLUMNS, FULL_MSG_FROM, mapMessageRow, type FullMessageRow } from '@openchatlab/core'
 
 /**
  * 按条件筛选消息并扩充上下文（支持分页）
@@ -147,24 +148,9 @@ export function filterMessagesWithContext(
     let totalChars = 0
 
     for (const range of pageRanges) {
-      // 使用 LIMIT OFFSET 获取指定范围的消息
       const blockSql = `
-        SELECT
-          msg.id,
-          msg.ts,
-          COALESCE(m.group_nickname, m.account_name, m.platform_id) as senderName,
-          m.platform_id as senderPlatformId,
-          COALESCE(m.aliases, '[]') as senderAliasesJson,
-          m.avatar as senderAvatar,
-          msg.content,
-          msg.type,
-          msg.reply_to_message_id as replyToMessageId,
-          reply_msg.content as replyToContent,
-          COALESCE(reply_m.group_nickname, reply_m.account_name, reply_m.platform_id) as replyToSenderName
-        FROM message msg
-        JOIN member m ON msg.sender_id = m.id
-        LEFT JOIN message reply_msg ON msg.reply_to_message_id = reply_msg.platform_message_id
-        LEFT JOIN member reply_m ON reply_msg.sender_id = reply_m.id
+        SELECT ${FULL_MSG_COLUMNS}
+        ${FULL_MSG_FROM}
         ${timeFilter ? 'WHERE msg.ts >= ? AND msg.ts <= ?' : ''}
         ORDER BY msg.ts ASC, msg.id ASC
         LIMIT ? OFFSET ?
@@ -176,51 +162,18 @@ export function filterMessagesWithContext(
       }
       blockParams.push(range.end - range.start + 1, range.start)
 
-      const messages = db.prepare(blockSql).all(...blockParams) as Array<{
-        id: number
-        ts: number
-        senderName: string
-        senderPlatformId: string
-        senderAliasesJson: string
-        senderAvatar: string | null
-        content: string | null
-        type: number
-        replyToMessageId: string | null
-        replyToContent: string | null
-        replyToSenderName: string | null
-      }>
+      const rows = db.prepare(blockSql).all(...blockParams) as FullMessageRow[]
+      const mapped = rows.map(mapMessageRow)
 
-      // 构建 hitIndexSet（相对于 range.start 的偏移）
       const hitIndexSet = new Set(range.hitIndexes.map((idx) => idx - range.start))
 
-      const blockMessages: FilterMessage[] = []
-      for (let i = 0; i < messages.length; i++) {
-        const msg = messages[i]
-        const isHit = hitIndexSet.has(i)
+      const blockMessages: FilterMessage[] = mapped.map((msg, i) => ({
+        ...msg,
+        isHit: hitIndexSet.has(i),
+      }))
 
-        // 解析别名 JSON
-        let senderAliases: string[] = []
-        try {
-          senderAliases = JSON.parse(msg.senderAliasesJson || '[]')
-        } catch {
-          senderAliases = []
-        }
-
-        blockMessages.push({
-          id: msg.id,
-          senderName: msg.senderName,
-          senderPlatformId: msg.senderPlatformId,
-          senderAliases,
-          senderAvatar: msg.senderAvatar,
-          content: msg.content || '',
-          timestamp: msg.ts,
-          type: msg.type,
-          replyToMessageId: msg.replyToMessageId,
-          replyToContent: msg.replyToContent,
-          replyToSenderName: msg.replyToSenderName,
-          isHit,
-        })
-        totalChars += (msg.content || '').length
+      for (const msg of mapped) {
+        totalChars += msg.content.length
       }
 
       if (blockMessages.length > 0) {
@@ -338,20 +291,8 @@ export function getMultipleSessionsMessages(
     let totalMessages = 0
     let totalChars = 0
 
-    // 为当前页的会话获取消息（完整信息）
     const messagesSql = `
-      SELECT
-        msg.id,
-        COALESCE(m.group_nickname, m.account_name, m.platform_id) as senderName,
-        m.platform_id as senderPlatformId,
-        COALESCE(m.aliases, '[]') as senderAliasesJson,
-        m.avatar as senderAvatar,
-        msg.content,
-        msg.type,
-        msg.reply_to_message_id as replyToMessageId,
-        reply_msg.content as replyToContent,
-        COALESCE(reply_m.group_nickname, reply_m.account_name, reply_m.platform_id) as replyToSenderName,
-        msg.ts as timestamp
+      SELECT ${FULL_MSG_COLUMNS}
       FROM message_context mc
       JOIN message msg ON msg.id = mc.message_id
       JOIN member m ON msg.sender_id = m.id
@@ -362,47 +303,16 @@ export function getMultipleSessionsMessages(
     `
 
     for (const session of pageSessions) {
-      const messages = db.prepare(messagesSql).all(session.id) as Array<{
-        id: number
-        senderName: string
-        senderPlatformId: string
-        senderAliasesJson: string
-        senderAvatar: string | null
-        content: string | null
-        type: number
-        replyToMessageId: string | null
-        replyToContent: string | null
-        replyToSenderName: string | null
-        timestamp: number
-      }>
+      const rows = db.prepare(messagesSql).all(session.id) as FullMessageRow[]
+      const mapped = rows.map(mapMessageRow)
 
-      const blockMessages: FilterMessage[] = messages.map((msg) => {
-        // 解析别名 JSON
-        let senderAliases: string[] = []
-        try {
-          senderAliases = JSON.parse(msg.senderAliasesJson || '[]')
-        } catch {
-          senderAliases = []
-        }
+      const blockMessages: FilterMessage[] = mapped.map((msg) => ({
+        ...msg,
+        isHit: false,
+      }))
 
-        return {
-          id: msg.id,
-          senderName: msg.senderName,
-          senderPlatformId: msg.senderPlatformId,
-          senderAliases,
-          senderAvatar: msg.senderAvatar,
-          content: msg.content || '',
-          timestamp: msg.timestamp,
-          type: msg.type,
-          replyToMessageId: msg.replyToMessageId,
-          replyToContent: msg.replyToContent,
-          replyToSenderName: msg.replyToSenderName,
-          isHit: false, // 会话模式下没有命中高亮
-        }
-      })
-
-      for (const msg of messages) {
-        totalChars += (msg.content || '').length
+      for (const msg of mapped) {
+        totalChars += msg.content.length
       }
 
       blocks.push({
@@ -412,7 +322,7 @@ export function getMultipleSessionsMessages(
         hitCount: 0,
       })
 
-      totalMessages += messages.length
+      totalMessages += rows.length
     }
 
     return {

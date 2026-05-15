@@ -2,9 +2,10 @@
  * FetchMessageAdapter — Web (CLI serve) 模式消息查询实现
  *
  * 通过 pluginQuery 构建 SQL 查询来实现消息检索。
- * 逻辑从 web-api-shim.ts 迁移而来。
+ * SQL 模板和行映射来自 @openchatlab/core 的共享模块。
  */
 
+import { FULL_MSG_SELECT, buildMsgConditions, mapMessageRow, type FullMessageRow } from '@openchatlab/core'
 import type { MessageAdapter, TimeFilter, PaginatedMessages, MessageRecord, SearchResult } from './types'
 import { getRegisteredAdapter } from '../registry'
 import type { DataAdapter } from '../data/types'
@@ -13,57 +14,17 @@ function getDataAdapter(): DataAdapter {
   return getRegisteredAdapter<DataAdapter>('data')
 }
 
-const MSG_SELECT = `
-  SELECT
-    msg.id,
-    m.id as senderId,
-    COALESCE(m.group_nickname, m.account_name, m.platform_id) as senderName,
-    m.platform_id as senderPlatformId,
-    m.aliases,
-    m.avatar as senderAvatar,
-    msg.content,
-    msg.ts as timestamp,
-    msg.type,
-    msg.reply_to_message_id as replyToMessageId,
-    reply_msg.content as replyToContent,
-    COALESCE(reply_m.group_nickname, reply_m.account_name, reply_m.platform_id) as replyToSenderName
-  FROM message msg
-  JOIN member m ON msg.sender_id = m.id
-  LEFT JOIN message reply_msg ON msg.reply_to_message_id = reply_msg.platform_message_id
-  LEFT JOIN member reply_m ON reply_msg.sender_id = reply_m.id
-`
-
-function buildConditions(
-  filter?: TimeFilter,
-  senderId?: number,
-  keywords?: string[]
-): { clause: string; params: unknown[] } {
-  const conds: string[] = []
-  const params: unknown[] = []
-
-  if (filter?.startTs != null) {
-    conds.push('msg.ts >= ?')
-    params.push(filter.startTs)
-  }
-  if (filter?.endTs != null) {
-    conds.push('msg.ts <= ?')
-    params.push(filter.endTs)
-  }
-  if (senderId != null) {
-    conds.push('msg.sender_id = ?')
-    params.push(senderId)
-  }
-  if (keywords && keywords.length > 0) {
-    const kwConds = keywords.map(() => 'msg.content LIKE ?')
-    conds.push(`(${kwConds.join(' OR ')})`)
-    params.push(...keywords.map((k) => `%${k}%`))
-  }
-
-  return { clause: conds.length > 0 ? 'AND ' + conds.join(' AND ') : '', params }
-}
-
 function pq<T>(sessionId: string, sql: string, params: unknown[] = []) {
   return getDataAdapter().pluginQuery<T>(sessionId, sql, params)
+}
+
+function toConditions(filter?: TimeFilter, senderId?: number, keywords?: string[]) {
+  return buildMsgConditions({
+    startTs: filter?.startTs,
+    endTs: filter?.endTs,
+    senderId,
+    keywords,
+  })
 }
 
 export class FetchMessageAdapter implements MessageAdapter {
@@ -75,12 +36,12 @@ export class FetchMessageAdapter implements MessageAdapter {
     senderId?: number,
     keywords?: string[]
   ): Promise<PaginatedMessages> {
-    const { clause, params } = buildConditions(filter, senderId, keywords)
-    const sql = `${MSG_SELECT} WHERE msg.id < ? ${clause} ORDER BY msg.id DESC LIMIT ?`
-    const rows = await pq<MessageRecord>(sessionId, sql, [beforeId, ...params, limit + 1])
+    const { clause, params } = toConditions(filter, senderId, keywords)
+    const sql = `${FULL_MSG_SELECT} WHERE msg.id < ? ${clause} ORDER BY msg.id DESC LIMIT ?`
+    const rows = await pq<FullMessageRow>(sessionId, sql, [beforeId, ...params, limit + 1])
     const hasMore = rows.length > limit
-    const messages = hasMore ? rows.slice(0, limit) : rows
-    return { messages: messages.reverse(), hasMore }
+    const sliced = hasMore ? rows.slice(0, limit) : rows
+    return { messages: sliced.map(mapMessageRow).reverse(), hasMore }
   }
 
   async getMessagesAfter(
@@ -91,12 +52,12 @@ export class FetchMessageAdapter implements MessageAdapter {
     senderId?: number,
     keywords?: string[]
   ): Promise<PaginatedMessages> {
-    const { clause, params } = buildConditions(filter, senderId, keywords)
-    const sql = `${MSG_SELECT} WHERE msg.id > ? ${clause} ORDER BY msg.id ASC LIMIT ?`
-    const rows = await pq<MessageRecord>(sessionId, sql, [afterId, ...params, limit + 1])
+    const { clause, params } = toConditions(filter, senderId, keywords)
+    const sql = `${FULL_MSG_SELECT} WHERE msg.id > ? ${clause} ORDER BY msg.id ASC LIMIT ?`
+    const rows = await pq<FullMessageRow>(sessionId, sql, [afterId, ...params, limit + 1])
     const hasMore = rows.length > limit
-    const messages = hasMore ? rows.slice(0, limit) : rows
-    return { messages, hasMore }
+    const sliced = hasMore ? rows.slice(0, limit) : rows
+    return { messages: sliced.map(mapMessageRow), hasMore }
   }
 
   async getMessageContext(
@@ -130,8 +91,9 @@ export class FetchMessageAdapter implements MessageAdapter {
 
     const idList = Array.from(allIds).sort((a, b) => a - b)
     const placeholders = idList.map(() => '?').join(', ')
-    const sql = `${MSG_SELECT} WHERE msg.id IN (${placeholders}) ORDER BY msg.id ASC`
-    return pq<MessageRecord>(sessionId, sql, idList)
+    const sql = `${FULL_MSG_SELECT} WHERE msg.id IN (${placeholders}) ORDER BY msg.id ASC`
+    const rows = await pq<FullMessageRow>(sessionId, sql, idList)
+    return rows.map(mapMessageRow)
   }
 
   async searchMessages(
@@ -142,24 +104,24 @@ export class FetchMessageAdapter implements MessageAdapter {
     offset: number = 0,
     senderId?: number
   ): Promise<SearchResult> {
-    const { clause, params } = buildConditions(filter, senderId, keywords)
+    const { clause, params } = toConditions(filter, senderId, keywords)
     const countSql = `SELECT COUNT(*) as total FROM message msg JOIN member m ON msg.sender_id = m.id WHERE 1=1 ${clause}`
     const countResult = await pq<{ total: number }>(sessionId, countSql, params)
     const total = countResult[0]?.total ?? 0
 
-    const sql = `${MSG_SELECT} WHERE 1=1 ${clause} ORDER BY msg.ts DESC LIMIT ? OFFSET ?`
-    const messages = await pq<MessageRecord>(sessionId, sql, [...params, limit, offset])
-    return { messages, total }
+    const sql = `${FULL_MSG_SELECT} WHERE 1=1 ${clause} ORDER BY msg.ts DESC LIMIT ? OFFSET ?`
+    const rows = await pq<FullMessageRow>(sessionId, sql, [...params, limit, offset])
+    return { messages: rows.map(mapMessageRow), total }
   }
 
   async getAllRecentMessages(sessionId: string, filter?: TimeFilter, limit: number = 100): Promise<SearchResult> {
-    const { clause, params } = buildConditions(filter)
+    const { clause, params } = toConditions(filter)
     const countSql = `SELECT COUNT(*) as total FROM message msg JOIN member m ON msg.sender_id = m.id WHERE 1=1 ${clause}`
     const countResult = await pq<{ total: number }>(sessionId, countSql, params)
     const total = countResult[0]?.total ?? 0
 
-    const sql = `${MSG_SELECT} WHERE 1=1 ${clause} ORDER BY msg.ts DESC LIMIT ?`
-    const messages = await pq<MessageRecord>(sessionId, sql, [...params, limit])
-    return { messages: messages.reverse(), total }
+    const sql = `${FULL_MSG_SELECT} WHERE 1=1 ${clause} ORDER BY msg.ts DESC LIMIT ?`
+    const rows = await pq<FullMessageRow>(sessionId, sql, [...params, limit])
+    return { messages: rows.map(mapMessageRow).reverse(), total }
   }
 }

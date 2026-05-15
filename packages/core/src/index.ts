@@ -58,6 +58,13 @@ export {
   getClusterGraph,
   getRelationshipStats,
   getLanguagePreferenceAnalysis,
+  FULL_MSG_COLUMNS,
+  FULL_MSG_FROM,
+  FULL_MSG_SELECT,
+  SYSTEM_MSG_FILTER,
+  TEXT_ONLY_FILTER,
+  mapMessageRow,
+  buildMsgConditions,
 } from './query'
 
 // 查询类型
@@ -107,6 +114,9 @@ export type {
   NlpProvider,
   PosTagResult,
   LanguagePreferenceParams,
+  FullMessageRow,
+  MappedMessage,
+  MsgQueryConditions,
 } from './query'
 
 // NLP（平台无关的类型、数据和工具函数）

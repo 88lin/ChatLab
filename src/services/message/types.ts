@@ -5,28 +5,15 @@
  * 来源：window.aiApi 的消息查询方法 / web-api-shim 垫片中的 SQL 查询
  */
 
+import type { MappedMessage } from '@openchatlab/core'
+
 export interface TimeFilter {
   startTs?: number
   endTs?: number
   memberId?: number
 }
 
-export interface MessageRecord {
-  id: number
-  senderId?: number
-  senderName: string
-  senderPlatformId: string
-  aliases?: string[]
-  senderAliases?: string[]
-  senderAvatar?: string | null
-  avatar?: string | null
-  content: string
-  timestamp: number
-  type: number
-  replyToMessageId?: string | null
-  replyToContent?: string | null
-  replyToSenderName?: string | null
-}
+export type MessageRecord = MappedMessage
 
 export interface PaginatedMessages {
   messages: MessageRecord[]
