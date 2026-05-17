@@ -121,6 +121,9 @@ export {
 } from './message-query-functions'
 export type { AsyncPaginatedMessages, AsyncMessagesWithTotal, AsyncConversationData } from './message-query-functions'
 
+// Member write operations (merge, delete, update aliases, DDL migration)
+export { updateMemberAliases, mergeMembers, deleteMember, ensureAliasesColumn, ensureAvatarColumn } from './member-ops'
+
 // Filter with context (keyword/sender/time filter + pagination)
 export { filterMessagesWithContext, getMultipleSessionsMessages } from './filter'
 export type {

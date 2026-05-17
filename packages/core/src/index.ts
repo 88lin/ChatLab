@@ -91,6 +91,11 @@ export {
   fetchConversationBetween,
   filterMessagesWithContext,
   getMultipleSessionsMessages,
+  updateMemberAliases,
+  mergeMembers,
+  deleteMember,
+  ensureAliasesColumn,
+  ensureAvatarColumn,
 } from './query'
 
 // 查询类型

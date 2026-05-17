@@ -21,8 +21,14 @@ import {
   getMemberNameHistory as coreGetMemberNameHistory,
   getMembersWithAliases as coreGetMembersWithAliases,
   getMembersPaginated as coreGetMembersPaginated,
+  updateMemberAliases as coreUpdateMemberAliases,
+  mergeMembers as coreMergeMembers,
+  deleteMember as coreDeleteMember,
+  ensureAliasesColumn as coreEnsureAliasesColumn,
+  ensureAvatarColumn as coreEnsureAvatarColumn,
 } from '@openchatlab/core'
 import type { MembersPaginationParams, MembersPaginatedResult, MemberWithAliases } from '@openchatlab/core'
+import { BetterSqliteAdapter } from '@openchatlab/node-runtime'
 
 // ==================== 基础查询（委托给 core） ====================
 
@@ -108,77 +114,39 @@ export function getMemberNameHistory(sessionId: string, memberId: number): any[]
 
 // ==================== 成员管理 ====================
 
-// 用于标记已检查过 aliases 字段的会话
 const aliasesCheckedSessions = new Set<string>()
-// 用于标记已检查过 avatar 字段的会话
 const avatarCheckedSessions = new Set<string>()
 
-/**
- * 确保 member 表有 aliases 字段（数据库迁移）
- * 用于兼容旧数据库
- */
 function ensureAliasesColumn(sessionId: string): void {
-  // 每个会话只检查一次
   if (aliasesCheckedSessions.has(sessionId)) return
-
   const dbPath = getDbPath(sessionId)
   if (!fs.existsSync(dbPath)) return
-
-  // 先关闭可能缓存的只读连接
   closeDatabase(sessionId)
-
-  // 使用写入模式打开数据库检查并添加字段
   const db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
-
   try {
-    // 检查 aliases 字段是否存在
-    const columns = db.prepare('PRAGMA table_info(member)').all() as Array<{ name: string }>
-    const hasAliases = columns.some((col) => col.name === 'aliases')
-
-    if (!hasAliases) {
-      // 添加 aliases 字段
-      db.exec("ALTER TABLE member ADD COLUMN aliases TEXT DEFAULT '[]'")
+    const adapter = new BetterSqliteAdapter(db)
+    if (coreEnsureAliasesColumn(adapter)) {
       console.log(`[Worker] Added aliases column to member table in session ${sessionId}`)
     }
-
-    // 标记为已检查
     aliasesCheckedSessions.add(sessionId)
   } finally {
     db.close()
   }
 }
 
-/**
- * 确保 member 表有 avatar 字段（数据库迁移）
- * 用于兼容旧数据库
- */
 export function ensureAvatarColumn(sessionId: string): void {
-  // 每个会话只检查一次
   if (avatarCheckedSessions.has(sessionId)) return
-
   const dbPath = getDbPath(sessionId)
   if (!fs.existsSync(dbPath)) return
-
-  // 先关闭可能缓存的只读连接
   closeDatabase(sessionId)
-
-  // 使用写入模式打开数据库检查并添加字段
   const db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
-
   try {
-    // 检查 avatar 字段是否存在
-    const columns = db.prepare('PRAGMA table_info(member)').all() as Array<{ name: string }>
-    const hasAvatar = columns.some((col) => col.name === 'avatar')
-
-    if (!hasAvatar) {
-      // 添加 avatar 字段
-      db.exec('ALTER TABLE member ADD COLUMN avatar TEXT')
+    const adapter = new BetterSqliteAdapter(db)
+    if (coreEnsureAvatarColumn(adapter)) {
       console.log(`[Worker] Added avatar column to member table in session ${sessionId}`)
     }
-
-    // 标记为已检查
     avatarCheckedSessions.add(sessionId)
   } finally {
     db.close()
@@ -217,165 +185,48 @@ export function getMembersPaginated(sessionId: string, params: MembersPagination
   return coreGetMembersPaginated(db, params)
 }
 
-/**
- * 更新成员别名
- */
 export function updateMemberAliases(sessionId: string, memberId: number, aliases: string[]): boolean {
   const dbPath = getDbPath(sessionId)
-  if (!fs.existsSync(dbPath)) {
-    return false
-  }
-
+  if (!fs.existsSync(dbPath)) return false
   try {
     const db = new Database(dbPath)
     db.pragma('journal_mode = WAL')
-
-    const stmt = db.prepare('UPDATE member SET aliases = ? WHERE id = ?')
-    stmt.run(JSON.stringify(aliases), memberId)
-
+    const adapter = new BetterSqliteAdapter(db)
+    const result = coreUpdateMemberAliases(adapter, memberId, aliases)
     db.close()
-    return true
+    return result
   } catch (error) {
     console.error('[Worker] Failed to update member aliases:', error)
     return false
   }
 }
 
-type MemberMergeRow = {
-  id: number
-  platformId: string
-  accountName: string | null
-  groupNickname: string | null
-  aliases: string | null
-  avatar: string | null
-  messageCount: number
-}
-
-function parseAliases(raw: string | null): string[] {
-  if (!raw) return []
-  try {
-    const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-  } catch {
-    return []
-  }
-}
-
-/**
- * 合并两个成员（保留消息数更多的一方）
- */
 export function mergeMembers(sessionId: string, memberId1: number, memberId2: number): boolean {
   const dbPath = getDbPath(sessionId)
-  if (!fs.existsSync(dbPath) || memberId1 === memberId2) {
-    return false
-  }
-
+  if (!fs.existsSync(dbPath)) return false
   try {
     const db = new Database(dbPath)
     db.pragma('journal_mode = WAL')
-
-    const rows = db
-      .prepare(
-        `
-        SELECT
-          m.id,
-          m.platform_id as platformId,
-          m.account_name as accountName,
-          m.group_nickname as groupNickname,
-          m.aliases,
-          m.avatar,
-          COUNT(msg.id) as messageCount
-        FROM member m
-        LEFT JOIN message msg ON m.id = msg.sender_id
-        WHERE m.id IN (?, ?)
-        GROUP BY m.id
-      `
-      )
-      .all(memberId1, memberId2) as MemberMergeRow[]
-
-    if (rows.length !== 2) {
-      db.close()
-      return false
-    }
-
-    const [memberA, memberB] = rows
-    let primary = memberA
-    let secondary = memberB
-
-    if (
-      memberB.messageCount > memberA.messageCount ||
-      (memberB.messageCount === memberA.messageCount && memberB.id < memberA.id)
-    ) {
-      primary = memberB
-      secondary = memberA
-    }
-
-    const mergedAliases = Array.from(new Set([...parseAliases(primary.aliases), ...parseAliases(secondary.aliases)]))
-    const mergedAccountName = primary.accountName || secondary.accountName
-    const mergedGroupNickname = primary.groupNickname || secondary.groupNickname
-    const mergedAvatar = primary.avatar || secondary.avatar
-
-    const mergeTransaction = db.transaction(() => {
-      // 1. 归并消息归属到主成员
-      db.prepare('UPDATE message SET sender_id = ? WHERE sender_id = ?').run(primary.id, secondary.id)
-
-      // 2. 归并昵称历史
-      db.prepare('UPDATE member_name_history SET member_id = ? WHERE member_id = ?').run(primary.id, secondary.id)
-
-      // 3. owner_id 若指向被合并成员，切换到主成员 platformId
-      db.prepare('UPDATE meta SET owner_id = ? WHERE owner_id = ?').run(primary.platformId, secondary.platformId)
-
-      // 4. 更新主成员资料（默认以消息更多一方为主，补齐缺失字段）
-      db.prepare(
-        `
-          UPDATE member
-          SET account_name = ?, group_nickname = ?, avatar = ?, aliases = ?
-          WHERE id = ?
-        `
-      ).run(mergedAccountName, mergedGroupNickname, mergedAvatar, JSON.stringify(mergedAliases), primary.id)
-
-      // 5. 删除被合并成员
-      db.prepare('DELETE FROM member WHERE id = ?').run(secondary.id)
-    })
-
-    mergeTransaction()
+    const adapter = new BetterSqliteAdapter(db)
+    const result = coreMergeMembers(adapter, memberId1, memberId2)
     db.close()
-    return true
+    return result
   } catch (error) {
     console.error('[Worker] Failed to merge members:', error)
     return false
   }
 }
 
-/**
- * 删除成员及其所有消息
- */
 export function deleteMember(sessionId: string, memberId: number): boolean {
   const dbPath = getDbPath(sessionId)
-  if (!fs.existsSync(dbPath)) {
-    return false
-  }
-
+  if (!fs.existsSync(dbPath)) return false
   try {
     const db = new Database(dbPath)
     db.pragma('journal_mode = WAL')
-
-    // 使用事务删除成员及其相关数据
-    const deleteTransaction = db.transaction(() => {
-      // 1. 删除该成员的消息
-      db.prepare('DELETE FROM message WHERE sender_id = ?').run(memberId)
-
-      // 2. 删除该成员的昵称历史
-      db.prepare('DELETE FROM member_name_history WHERE member_id = ?').run(memberId)
-
-      // 3. 删除成员记录
-      db.prepare('DELETE FROM member WHERE id = ?').run(memberId)
-    })
-
-    deleteTransaction()
+    const adapter = new BetterSqliteAdapter(db)
+    const result = coreDeleteMember(adapter, memberId)
     db.close()
-    return true
+    return result
   } catch (error) {
     console.error('[Worker] Failed to delete member:', error)
     return false
