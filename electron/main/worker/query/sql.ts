@@ -1,102 +1,50 @@
 /**
- * SQL 实验室查询模块
- * 提供用户自定义 SQL 查询功能
+ * SQL Lab query module — Electron adapter.
+ *
+ * Delegates to @openchatlab/core's unified executeSql and getSchemaDetailed.
+ * Keeps the legacy SQLResult shape for backward-compatible IPC responses.
  */
 
-import { openDatabase } from '../core'
+import { executeSql, getSchemaDetailed } from '@openchatlab/core'
+import type { TableSchema } from '@openchatlab/core'
+import { openDatabaseAdapter } from '../core'
 
-/**
- * SQL 执行结果
- */
+export type { TableSchema }
+
 export interface SQLResult {
   columns: string[]
-  rows: any[][]
+  rows: unknown[][]
   rowCount: number
   duration: number
-  limited: boolean // 是否被截断
+  limited: boolean
 }
 
-/**
- * 表结构信息
- */
-export interface TableSchema {
-  name: string
-  columns: {
-    name: string
-    type: string
-    notnull: boolean
-    pk: boolean
-  }[]
+function ensureAdapter(sessionId: string) {
+  const adapter = openDatabaseAdapter(sessionId)
+  if (!adapter) throw new Error('Database not found')
+  return adapter
 }
 
-/**
- * 获取数据库 Schema
- */
 export function getSchema(sessionId: string): TableSchema[] {
-  const db = openDatabase(sessionId)
-  if (!db) {
-    throw new Error('数据库不存在')
-  }
-
-  // 获取所有表名
-  const tables = db
-    .prepare(
-      `SELECT name FROM sqlite_master
-       WHERE type='table' AND name NOT LIKE 'sqlite_%'
-       ORDER BY name`
-    )
-    .all() as { name: string }[]
-
-  const schema: TableSchema[] = []
-
-  for (const table of tables) {
-    // 获取表的列信息
-    const columns = db.prepare(`PRAGMA table_info('${table.name}')`).all() as {
-      cid: number
-      name: string
-      type: string
-      notnull: number
-      dflt_value: any
-      pk: number
-    }[]
-
-    schema.push({
-      name: table.name,
-      columns: columns.map((col) => ({
-        name: col.name,
-        type: col.type,
-        notnull: col.notnull === 1,
-        pk: col.pk === 1,
-      })),
-    })
-  }
-
-  return schema
+  return getSchemaDetailed(ensureAdapter(sessionId))
 }
 
 /**
- * 插件专用：参数化只读 SQL 查询
- * - 强制 stmt.readonly 检查（better-sqlite3 原生特性）
- * - 参数化执行（防注入 + 预编译缓存）
+ * Plugin-style parameterized readonly query.
+ * Uses stmt.readonly via the adapter for safety.
  */
-export function executePluginQuery<T = Record<string, any>>(
+export function executePluginQuery<T = Record<string, unknown>>(
   sessionId: string,
   sql: string,
-  params: any[] | Record<string, any> = []
+  params: unknown[] | Record<string, unknown> = []
 ): T[] {
-  const db = openDatabase(sessionId)
-  if (!db) {
-    throw new Error('数据库不存在')
-  }
+  const adapter = ensureAdapter(sessionId)
+  const stmt = adapter.prepare(sql.trim())
 
-  const stmt = db.prepare(sql.trim())
-
-  // 安全防线：强制只读检查
-  if (!stmt.readonly) {
+  if (stmt.readonly === false) {
     throw new Error('Plugin Security Violation: Only READ-ONLY statements are allowed.')
   }
 
-  // better-sqlite3 支持位置参数（数组展开）和命名参数（对象）
   if (Array.isArray(params)) {
     return stmt.all(...params) as T[]
   }
@@ -104,48 +52,24 @@ export function executePluginQuery<T = Record<string, any>>(
 }
 
 /**
- * 执行用户 SQL 查询
- * - 仅允许只读查询（如 SELECT / WITH ... SELECT）
- * - 不强制 LIMIT，由用户自行控制
- * - 带超时控制（由 Worker 管理器控制）
+ * Execute user SQL (SQL Lab).
+ * Returns columnar format with timing for the legacy IPC contract.
  */
 export function executeRawSQL(sessionId: string, sql: string): SQLResult {
-  const db = openDatabase(sessionId)
-  if (!db) {
-    throw new Error('数据库不存在')
-  }
-
-  const trimmedSQL = sql.trim()
-
-  // 执行查询
-  const startTime = Date.now()
+  const adapter = ensureAdapter(sessionId)
 
   try {
-    // better-sqlite3 是同步的，超时由 Worker 管理器控制
-    const stmt = db.prepare(trimmedSQL)
-    if (!stmt.readonly) {
-      throw new Error('只支持只读查询语句（SELECT / WITH）')
-    }
-    const rows = stmt.all()
-    const duration = Date.now() - startTime
-
-    // 获取列名
-    const columns = stmt.columns().map((col) => col.name)
-
-    // 将结果转换为二维数组
-    const rowData = rows.map((row: any) => columns.map((col) => row[col]))
-
+    const result = executeSql(adapter, sql, { columnar: true, timing: true, maxRows: 0 })
     return {
-      columns,
-      rows: rowData,
-      rowCount: rows.length,
-      duration,
-      limited: false, // 不再强制限制
+      columns: result.columns,
+      rows: result.rows as unknown[][],
+      rowCount: result.rowCount,
+      duration: result.duration ?? 0,
+      limited: result.truncated,
     }
   } catch (error) {
     if (error instanceof Error) {
-      // 美化错误信息
-      const message = error.message.replace(/^SQLITE_ERROR: /, '').replace(/^SQLITE_READONLY: /, '只读模式：')
+      const message = error.message.replace(/^SQLITE_ERROR: /, '').replace(/^SQLITE_READONLY: /, '')
       throw new Error(message)
     }
     throw error

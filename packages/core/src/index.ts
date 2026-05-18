@@ -59,6 +59,8 @@ export {
   getMembers,
   getMembersDetailed,
   executeReadonlySql,
+  executeSql,
+  getSchemaDetailed,
   getMessageContext,
   getSearchMessageContext,
   getConversationBetween,
@@ -167,6 +169,9 @@ export type {
   PaginationInfo,
   FilterResultWithPagination,
   FilterOptions,
+  SqlExecutionOptions,
+  SqlExecutionResult,
+  TableSchema,
 } from './query'
 
 // NLP（平台无关的类型、数据和工具函数）

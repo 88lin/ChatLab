@@ -25,8 +25,8 @@ import {
   getMonthlyActivity,
   getYearlyActivity,
   getMessageLengthDistribution,
-  getDatabaseSchema,
-  executeReadonlySql,
+  executeSql,
+  getSchemaDetailed,
   getRelationshipStats,
   getCatchphraseAnalysis,
   getMentionAnalysis,
@@ -467,7 +467,7 @@ export function registerWebRoutes(server: FastifyInstance, dbManager: DatabaseMa
       return reply.code(400).send({ error: 'Missing sql parameter' })
     }
     try {
-      return executeReadonlySql(db, sql)
+      return executeSql(db, sql, { timing: true })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'SQL execution error'
       return reply.code(400).send({ error: message })
@@ -476,24 +476,7 @@ export function registerWebRoutes(server: FastifyInstance, dbManager: DatabaseMa
 
   server.get<{ Params: { id: string } }>('/_web/sessions/:id/schema', async (request) => {
     const db = ensureDb(dbManager, request.params.id)
-    const tables = getDatabaseSchema(db)
-    return tables.map((t) => {
-      const columns = db.prepare(`PRAGMA table_info('${t.name}')`).all() as Array<{
-        name: string
-        type: string
-        notnull: number
-        pk: number
-      }>
-      return {
-        name: t.name,
-        columns: columns.map((c) => ({
-          name: c.name,
-          type: c.type,
-          notnull: c.notnull === 1,
-          pk: c.pk === 1,
-        })),
-      }
-    })
+    return getSchemaDetailed(db)
   })
 
   // ==================== 插件查询（参数化只读 SQL） ====================

@@ -72,6 +72,8 @@ export {
   getMembers,
   getMembersDetailed,
   executeReadonlySql,
+  executeSql,
+  getSchemaDetailed,
   getMessageContext,
   getSearchMessageContext,
   getConversationBetween,
@@ -92,6 +94,9 @@ export type {
   MemberWithAliases,
   MembersPaginationParams,
   MembersPaginatedResult,
+  SqlExecutionOptions,
+  SqlExecutionResult,
+  TableSchema,
 } from './message-queries'
 
 // Shared full-message SQL, types, and mapper

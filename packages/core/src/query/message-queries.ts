@@ -295,29 +295,137 @@ export function getMembersDetailed(db: DatabaseAdapter): MemberDetailed[] {
 }
 
 /**
- * 执行只读 SQL 查询（SQL Lab）
+ * 执行只读 SQL 查询（SQL Lab）— 保留向后兼容签名
  */
 export function executeReadonlySql(
   db: DatabaseAdapter,
   sql: string,
   maxRows: number = 1000
 ): { columns: string[]; rows: Record<string, unknown>[]; rowCount: number; truncated: boolean } {
+  const result = executeSql(db, sql, { maxRows })
+  return {
+    columns: result.columns,
+    rows: result.rows as Record<string, unknown>[],
+    rowCount: result.rowCount,
+    truncated: result.truncated,
+  }
+}
+
+// ==================== Unified SQL Execution ====================
+
+export interface SqlExecutionOptions {
+  /** Maximum rows to return. 0 = no limit. Default: 1000. */
+  maxRows?: number
+  /** Return rows as 2D arrays instead of objects. Default: false. */
+  columnar?: boolean
+  /** Include execution duration in result. Default: false. */
+  timing?: boolean
+}
+
+export interface SqlExecutionResult {
+  columns: string[]
+  rows: Record<string, unknown>[] | unknown[][]
+  rowCount: number
+  truncated: boolean
+  duration?: number
+}
+
+/**
+ * Unified readonly SQL execution.
+ *
+ * Safety: uses stmt.readonly when available (better-sqlite3 native check),
+ * falls back to keyword denylist for adapters that don't expose it.
+ */
+export function executeSql(db: DatabaseAdapter, sql: string, options?: SqlExecutionOptions): SqlExecutionResult {
+  const maxRows = options?.maxRows ?? 1000
+  const columnar = options?.columnar ?? false
+  const timing = options?.timing ?? false
+
   const trimmed = sql.trim()
 
-  const forbidden = /^\s*(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|ATTACH|DETACH|REINDEX|VACUUM|PRAGMA)/i
-  if (forbidden.test(trimmed)) {
-    throw new Error('Only SELECT queries are allowed')
+  const startTime = timing ? Date.now() : 0
+
+  const stmt = db.prepare(trimmed)
+
+  if (stmt.readonly === false) {
+    throw new Error('Only read-only statements are allowed (SELECT / WITH)')
   }
 
-  const needsLimit = !/\bLIMIT\b/i.test(trimmed)
-  const safeSql = needsLimit ? `${trimmed} LIMIT ${maxRows + 1}` : trimmed
+  if (stmt.readonly === undefined) {
+    const forbidden = /^\s*(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|ATTACH|DETACH|REINDEX|VACUUM|PRAGMA)/i
+    if (forbidden.test(trimmed)) {
+      throw new Error('Only SELECT queries are allowed')
+    }
+  }
 
-  const rows = db.prepare(safeSql).all() as Record<string, unknown>[]
-  const truncated = rows.length > maxRows
-  const resultRows = truncated ? rows.slice(0, maxRows) : rows
+  const needsLimit = maxRows > 0 && !/\bLIMIT\b/i.test(trimmed)
+  let allRows: Record<string, unknown>[]
+
+  if (needsLimit) {
+    const safeSql = `${trimmed} LIMIT ${maxRows + 1}`
+    allRows = db.prepare(safeSql).all() as Record<string, unknown>[]
+  } else {
+    allRows = stmt.all() as Record<string, unknown>[]
+  }
+
+  const truncated = maxRows > 0 && allRows.length > maxRows
+  const resultRows = truncated ? allRows.slice(0, maxRows) : allRows
   const columns = resultRows.length > 0 ? Object.keys(resultRows[0]) : []
 
-  return { columns, rows: resultRows, rowCount: resultRows.length, truncated }
+  const duration = timing ? Date.now() - startTime : undefined
+
+  if (columnar) {
+    const rows2d = resultRows.map((row) => columns.map((col) => row[col]))
+    return { columns, rows: rows2d, rowCount: rows2d.length, truncated, duration }
+  }
+
+  return { columns, rows: resultRows, rowCount: resultRows.length, truncated, duration }
+}
+
+/** Table schema with column details */
+export interface TableSchema {
+  name: string
+  columns: Array<{
+    name: string
+    type: string
+    notnull: boolean
+    pk: boolean
+  }>
+}
+
+/**
+ * Get database schema with column-level details.
+ * Returns table names + full column info via PRAGMA table_info.
+ */
+export function getSchemaDetailed(db: DatabaseAdapter): TableSchema[] {
+  const tables = db
+    .prepare(
+      `SELECT name FROM sqlite_master
+       WHERE type='table' AND name NOT LIKE 'sqlite_%'
+       ORDER BY name`
+    )
+    .all() as Array<{ name: string }>
+
+  return tables.map((table) => {
+    const columns = db.prepare(`PRAGMA table_info('${table.name}')`).all() as Array<{
+      cid: number
+      name: string
+      type: string
+      notnull: number
+      dflt_value: unknown
+      pk: number
+    }>
+
+    return {
+      name: table.name,
+      columns: columns.map((col) => ({
+        name: col.name,
+        type: col.type,
+        notnull: col.notnull === 1,
+        pk: col.pk === 1,
+      })),
+    }
+  })
 }
 
 // ==================== Context & Conversation Queries ====================
