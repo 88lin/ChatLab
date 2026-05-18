@@ -7,6 +7,7 @@ import Database from 'better-sqlite3'
 import * as fs from 'fs'
 import * as path from 'path'
 import { CHAT_DB_SCHEMA, FTS_TABLE_SCHEMA } from '@openchatlab/core'
+import { BetterSqliteAdapter, writeParseResultToDb } from '@openchatlab/node-runtime'
 import type { ParseResult } from '../../../src/types/base'
 import { migrateDatabase, needsMigration, CURRENT_SCHEMA_VERSION } from './migrations'
 import { getDatabaseDir, getCacheDir, ensureDir } from '../paths'
@@ -95,139 +96,15 @@ export function openDatabaseWithMigration(sessionId: string, forceRepair = false
 
 /**
  * 导入解析后的数据到数据库
+ * Core write logic delegated to @openchatlab/node-runtime writeParseResultToDb.
  */
 export function importData(parseResult: ParseResult): string {
   const sessionId = generateSessionId()
   const db = createDatabase(sessionId)
 
   try {
-    const importTransaction = db.transaction(() => {
-      const insertMeta = db.prepare(`
-        INSERT INTO meta (name, platform, type, imported_at, group_id, group_avatar, owner_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `)
-      insertMeta.run(
-        parseResult.meta.name,
-        parseResult.meta.platform,
-        parseResult.meta.type,
-        Math.floor(Date.now() / 1000),
-        parseResult.meta.groupId || null,
-        parseResult.meta.groupAvatar || null,
-        parseResult.meta.ownerId || null
-      )
-
-      const insertMember = db.prepare(`
-        INSERT OR IGNORE INTO member (platform_id, account_name, group_nickname, avatar, roles) VALUES (?, ?, ?, ?, ?)
-      `)
-      const getMemberId = db.prepare(`
-        SELECT id FROM member WHERE platform_id = ?
-      `)
-
-      const memberIdMap = new Map<string, number>()
-
-      for (const member of parseResult.members) {
-        insertMember.run(
-          member.platformId,
-          member.accountName || null,
-          member.groupNickname || null,
-          member.avatar || null,
-          member.roles ? JSON.stringify(member.roles) : '[]'
-        )
-        const row = getMemberId.get(member.platformId) as { id: number }
-        memberIdMap.set(member.platformId, row.id)
-      }
-
-      const sortedMessages = [...parseResult.messages].sort((a, b) => a.timestamp - b.timestamp)
-      // 分别追踪 account_name 和 group_nickname 的变化
-      const accountNameTracker = new Map<string, { currentName: string; lastSeenTs: number }>()
-      const groupNicknameTracker = new Map<string, { currentName: string; lastSeenTs: number }>()
-
-      const insertMessage = db.prepare(`
-        INSERT INTO message (sender_id, sender_account_name, sender_group_nickname, ts, type, content, reply_to_message_id, platform_message_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `)
-      const insertNameHistory = db.prepare(`
-        INSERT INTO member_name_history (member_id, name_type, name, start_ts, end_ts)
-        VALUES (?, ?, ?, ?, ?)
-      `)
-      const updateMemberAccountName = db.prepare(`
-        UPDATE member SET account_name = ? WHERE platform_id = ?
-      `)
-      const updateMemberGroupNickname = db.prepare(`
-        UPDATE member SET group_nickname = ? WHERE platform_id = ?
-      `)
-      const updateNameHistoryEndTs = db.prepare(`
-        UPDATE member_name_history
-        SET end_ts = ?
-        WHERE member_id = ? AND name_type = ? AND end_ts IS NULL
-      `)
-
-      for (const msg of sortedMessages) {
-        const senderId = memberIdMap.get(msg.senderPlatformId)
-        if (senderId === undefined) continue
-
-        insertMessage.run(
-          senderId,
-          msg.senderAccountName || null,
-          msg.senderGroupNickname || null,
-          msg.timestamp,
-          msg.type,
-          msg.content,
-          msg.replyToMessageId || null,
-          msg.platformMessageId || null
-        )
-
-        // 追踪 account_name 变化
-        const accountName = msg.senderAccountName
-        if (accountName) {
-          const tracker = accountNameTracker.get(msg.senderPlatformId)
-          if (!tracker) {
-            accountNameTracker.set(msg.senderPlatformId, {
-              currentName: accountName,
-              lastSeenTs: msg.timestamp,
-            })
-            insertNameHistory.run(senderId, 'account_name', accountName, msg.timestamp, null)
-          } else if (tracker.currentName !== accountName) {
-            updateNameHistoryEndTs.run(msg.timestamp, senderId, 'account_name')
-            insertNameHistory.run(senderId, 'account_name', accountName, msg.timestamp, null)
-            tracker.currentName = accountName
-            tracker.lastSeenTs = msg.timestamp
-          } else {
-            tracker.lastSeenTs = msg.timestamp
-          }
-        }
-
-        // 追踪 group_nickname 变化
-        const groupNickname = msg.senderGroupNickname
-        if (groupNickname) {
-          const tracker = groupNicknameTracker.get(msg.senderPlatformId)
-          if (!tracker) {
-            groupNicknameTracker.set(msg.senderPlatformId, {
-              currentName: groupNickname,
-              lastSeenTs: msg.timestamp,
-            })
-            insertNameHistory.run(senderId, 'group_nickname', groupNickname, msg.timestamp, null)
-          } else if (tracker.currentName !== groupNickname) {
-            updateNameHistoryEndTs.run(msg.timestamp, senderId, 'group_nickname')
-            insertNameHistory.run(senderId, 'group_nickname', groupNickname, msg.timestamp, null)
-            tracker.currentName = groupNickname
-            tracker.lastSeenTs = msg.timestamp
-          } else {
-            tracker.lastSeenTs = msg.timestamp
-          }
-        }
-      }
-
-      // 更新成员最新的 account_name 和 group_nickname
-      for (const [platformId, tracker] of accountNameTracker.entries()) {
-        updateMemberAccountName.run(tracker.currentName, platformId)
-      }
-      for (const [platformId, tracker] of groupNicknameTracker.entries()) {
-        updateMemberGroupNickname.run(tracker.currentName, platformId)
-      }
-    })
-
-    importTransaction()
+    const adapter = new BetterSqliteAdapter(db)
+    writeParseResultToDb(adapter, parseResult.meta, parseResult.members, parseResult.messages)
     return sessionId
   } catch (error) {
     console.error('[Database] Error in importData:', error)

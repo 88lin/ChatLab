@@ -7,6 +7,10 @@
 
 export { BetterSqliteAdapter, openBetterSqliteDatabase } from './better-sqlite3-adapter'
 
+// Import data writing
+export { writeParseResultToDb } from './import'
+export type { ImportMeta, WriteParseResultStats } from './import'
+
 // AI Logger
 export { AiLogger, extractErrorInfo, extractErrorStack } from './ai'
 export { NodePathProvider } from './node-path-provider'
