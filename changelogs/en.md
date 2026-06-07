@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.25.1 (2026-06-08)
+
+> Introduce a data directory compatibility gate to prevent older runtimes from writing to upgraded data directories, and add a CLI `ai chat` command.
+
+### ✨ Features
+
+- Add a data directory compatibility gate: after writing v6 schema data, record the minimum required runtime version to prevent older runtimes from corrupting upgraded directories
+- Verify data directory compatibility before each database operation and reject access when the version requirement is not met
+- Desktop: Check data directory compatibility at startup and show an error dialog before quitting if the requirement is not met
+- CLI: Check data directory compatibility at startup and exit immediately if the requirement is not met
+- CLI: Add the `ai chat` command for multi-turn AI conversations directly in the terminal
+
+### 🐛 Bug Fixes
+
+- Use the packaged app version (not Electron's dev-mode 0.0.0) when writing the compatibility gate, and require a valid runtime identity
+- Write the compatibility gate after database migrations and imports complete; abort startup migrations immediately on failure instead of failing silently
+- MCP: Check data directory compatibility at startup and exit early to prevent writing incompatible data
+- Desktop: Map compatibility gate errors to 409 responses in the HTTP API so the frontend can show an upgrade prompt
+- CLI: Normalize AI tool names and fix edge cases in the `ai chat` command
+
+### ♻️ Refactoring
+
+- Align AI chat and segment identifier naming
+
+### test
+
+- Add test coverage for the parser, config migration, database migration, HTTP routes, and AI tools
+
+### 📝 Documentation
+
+- Add public documentation for the data directory compatibility gate, explaining version restrictions and upgrade rules when sharing a data directory
+
 ## v0.25.0 (2026-06-07)
 
 > AI chat can now generate charts through skills, with fixes for tool rounds, the desktop title bar, and the development service lifecycle.
