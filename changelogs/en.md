@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.26.0 (2026-06-10)
+
+> Add an AI analysis planner with streaming structured plan generation and chart planning integration; improve chart mode tool availability and fix several AI and import issues.
+
+### ✨ Features
+
+- Add an AI analysis planner with streaming structured plan generation and block rendering
+- Integrate chart planning support so AI analysis plans can automatically transition into chart generation
+- Provide the planner with startup context and extended data snapshots for deeper, higher-quality analysis
+- Prefer high-level tools over raw SQL when rendering charts to reduce permission requirements
+- Improve overall AI analysis and chart behavior
+- Add a chart auto-mode preference setting
+- Add copy-message-ID actions
+- Add LLM fallback for shadow routing and log routing decisions
+- CLI: Expose full agent stream events
+
+### 🐛 Bug Fixes
+
+- Fix the `render_chart` tool being dropped when a chart skill is explicitly selected
+- Fix tool availability gaps in explicit chart mode and plan status after errors
+- Migrate ECharts 6 `containLabel` configuration and hide redundant pie chart legends
+- Fix settings page navigation order, `skillSettings` key naming, and SubTabs line-wrapping
+- Fix assistant messages not filling the full chat area width
+- Improve the visual layout of the analysis plan generation block
+- Fix thinking-level selection not persisting across restarts
+- Fix JSONL timestamp normalization causing incremental import failures
+- Desktop: Fix `execute_sql` tool not being registered in the desktop tool registry
+
+### test
+
+- Add an evaluation set for agent routing decisions
+
 ## v0.25.1 (2026-06-08)
 
 > Introduce a data directory compatibility gate to prevent older runtimes from writing to upgraded data directories, and add a CLI `ai chat` command.
