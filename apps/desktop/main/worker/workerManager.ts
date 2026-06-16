@@ -15,6 +15,12 @@ import { getNlpDir } from '../nlp/dictManager'
 import { assertDesktopDataDirCompatible, getDesktopAppVersion } from '../runtime-compat'
 import { getPathProvider } from '../path-context'
 import { raiseChatDbCompatibilityGate } from '@openchatlab/node-runtime'
+import { isRestartableReadOnlyRequestType } from './workerTimeoutPolicy'
+
+interface WorkerRequestOptions {
+  timeoutMs?: number
+  restartOnTimeout?: boolean
+}
 
 // Worker 实例
 let worker: Worker | null = null
@@ -25,12 +31,57 @@ const pendingRequests = new Map<
   {
     resolve: (value: any) => void
     reject: (error: Error) => void
+    timeout: ReturnType<typeof setTimeout>
+    restartOnTimeout: boolean
     onProgress?: (progress: ParseProgress) => void // 进度回调
   }
 >()
 
 // 请求 ID 计数器
 let requestIdCounter = 0
+
+function hasProgressRequest(): boolean {
+  for (const pending of pendingRequests.values()) {
+    if (pending.onProgress) return true
+  }
+  return false
+}
+
+function rejectAllPending(error: Error): void {
+  for (const [id, pending] of pendingRequests.entries()) {
+    clearTimeout(pending.timeout)
+    pending.reject(error)
+    pendingRequests.delete(id)
+  }
+}
+
+function hasNonRestartableRequest(): boolean {
+  for (const pending of pendingRequests.values()) {
+    if (!pending.restartOnTimeout) return true
+  }
+  return false
+}
+
+function terminateWorkerAfterQueryTimeout(type: string, timedOutWorker: Worker): void {
+  if (!worker || worker !== timedOutWorker) return
+
+  if (hasProgressRequest()) {
+    console.warn(`[WorkerManager] Query timed out while a progress task is active; keeping worker alive: ${type}`)
+    return
+  }
+
+  if (hasNonRestartableRequest()) {
+    console.warn(`[WorkerManager] Query timed out while non-restartable work is active; keeping worker alive: ${type}`)
+    return
+  }
+
+  console.warn(`[WorkerManager] Restarting worker after request timeout: ${type}`)
+  worker = null
+  rejectAllPending(new Error(`Worker restarted after request timeout: ${type}`))
+  timedOutWorker.terminate().catch((error) => {
+    console.error('[WorkerManager] Failed to terminate timed-out worker:', error)
+  })
+}
 
 /**
  * 获取数据库目录
@@ -75,7 +126,7 @@ export function initWorker(): void {
   console.log('[WorkerManager] Initializing worker at:', workerPath)
 
   try {
-    worker = new Worker(workerPath, {
+    const initializedWorker = new Worker(workerPath, {
       workerData: {
         dbDir: getDbDir(),
         cacheDir: getCacheDir(),
@@ -84,9 +135,10 @@ export function initWorker(): void {
         appVersion: getDesktopAppVersion(app.getVersion()),
       },
     })
+    worker = initializedWorker
 
     // 监听 Worker 消息
-    worker.on('message', (message) => {
+    initializedWorker.on('message', (message) => {
       const { id, type, success, result, error, payload } = message
 
       const pending = pendingRequests.get(id)
@@ -102,6 +154,7 @@ export function initWorker(): void {
 
       // 处理完成或错误消息
       pendingRequests.delete(id)
+      clearTimeout(pending.timeout)
 
       if (success) {
         pending.resolve(result)
@@ -111,20 +164,21 @@ export function initWorker(): void {
     })
 
     // 监听 Worker 错误
-    worker.on('error', (error) => {
+    initializedWorker.on('error', (error) => {
       console.error('[WorkerManager] Worker error:', error)
     })
 
     // 监听 Worker 退出
-    worker.on('exit', (code) => {
+    initializedWorker.on('exit', (code) => {
       console.log('[WorkerManager] Worker exited with code:', code)
+      if (worker !== initializedWorker) {
+        console.log('[WorkerManager] Ignoring exit from replaced worker')
+        return
+      }
       worker = null
 
       // 拒绝所有等待中的请求
-      for (const [id, pending] of pendingRequests.entries()) {
-        pending.reject(new Error('Worker exited unexpectedly'))
-        pendingRequests.delete(id)
-      }
+      rejectAllPending(new Error('Worker exited unexpectedly'))
     })
 
     console.log('[WorkerManager] Worker initialized successfully')
@@ -137,7 +191,7 @@ export function initWorker(): void {
 /**
  * 发送消息到 Worker 并等待响应
  */
-function sendToWorker<T>(type: string, payload: any, timeoutMs: number = 60000): Promise<T> {
+function sendToWorker<T>(type: string, payload: any, options: number | WorkerRequestOptions = {}): Promise<T> {
   return new Promise((resolve, reject) => {
     if (!worker) {
       try {
@@ -148,19 +202,27 @@ function sendToWorker<T>(type: string, payload: any, timeoutMs: number = 60000):
       }
     }
 
+    const timeoutMs = typeof options === 'number' ? options : (options.timeoutMs ?? 60000)
+    const restartOnTimeout =
+      typeof options === 'number'
+        ? isRestartableReadOnlyRequestType(type)
+        : (options.restartOnTimeout ?? isRestartableReadOnlyRequestType(type))
+    const requestWorker = worker!
     const id = `req_${++requestIdCounter}`
 
-    pendingRequests.set(id, { resolve, reject })
-
-    worker!.postMessage({ id, type, payload })
-
-    // 设置超时
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       if (pendingRequests.has(id)) {
         pendingRequests.delete(id)
         reject(new Error(`Worker request timeout: ${type}`))
+        if (restartOnTimeout) {
+          terminateWorkerAfterQueryTimeout(type, requestWorker)
+        }
       }
     }, timeoutMs)
+
+    pendingRequests.set(id, { resolve, reject, timeout, restartOnTimeout })
+
+    requestWorker.postMessage({ id, type, payload })
   })
 }
 
@@ -186,17 +248,16 @@ function sendToWorkerWithProgress<T>(
 
     const id = `req_${++requestIdCounter}`
 
-    pendingRequests.set(id, { resolve, reject, onProgress })
-
-    worker!.postMessage({ id, type, payload })
-
-    // 设置超时
-    setTimeout(() => {
+    const timeout = setTimeout(() => {
       if (pendingRequests.has(id)) {
         pendingRequests.delete(id)
         reject(new Error(`Worker request timeout: ${type}`))
       }
     }, timeoutMs)
+
+    pendingRequests.set(id, { resolve, reject, timeout, restartOnTimeout: false, onProgress })
+
+    worker!.postMessage({ id, type, payload })
   })
 }
 
@@ -210,6 +271,7 @@ export function closeWorker(): void {
 
     worker.terminate()
     worker = null
+    rejectAllPending(new Error('Worker terminated'))
     console.log('[WorkerManager] Worker terminated')
   }
 }
@@ -230,6 +292,7 @@ export async function closeWorkerAsync(): Promise<void> {
 
     worker.terminate()
     worker = null
+    rejectAllPending(new Error('Worker terminated'))
     console.log('[WorkerManager] Worker terminated (async)')
   }
 }
