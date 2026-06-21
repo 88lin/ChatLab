@@ -34,6 +34,8 @@ export function registerSemanticIndexRoutes(server: FastifyInstance, ctx: HttpRo
       })
     }
     server.get('/_web/ai/semantic-index/enabled', async () => ({ sessions: [] }))
+    server.get('/_web/ai/semantic-index/status', async () => ({ status: null }))
+    server.post('/_web/ai/semantic-index/status', async () => ({ sessions: [] }))
     return
   }
 
