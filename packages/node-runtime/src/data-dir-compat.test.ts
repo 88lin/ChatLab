@@ -81,6 +81,57 @@ test('current runtime satisfying minRuntimeVersion is compatible', () => {
   })
 })
 
+test('prerelease current runtime satisfying stable minRuntimeVersion is compatible', () => {
+  const userDataDir = makeTempDir()
+  writeMeta(userDataDir, {
+    formatVersion: 1,
+    minRuntimeVersion: '0.25.1',
+    dataCompatibilityVersion: 1,
+    reasons: ['segment-schema'],
+    updatedBy: { runtime: 'cli', module: 'chat-db-migration', version: '0.25.1' },
+    updatedAt: 1780830000,
+  })
+
+  assert.doesNotThrow(() => {
+    assertDataDirCompatible(makePathProvider(userDataDir), { version: '0.26.4-beta.1', kind: 'desktop' })
+  })
+})
+
+test('prerelease current runtime is compared by its stable core version', () => {
+  const equalDir = makeTempDir()
+  writeMeta(equalDir, {
+    formatVersion: 1,
+    minRuntimeVersion: '0.26.4',
+    dataCompatibilityVersion: 1,
+    reasons: ['segment-schema'],
+    updatedBy: { runtime: 'cli', module: 'chat-db-migration', version: '0.26.4' },
+    updatedAt: 1780830000,
+  })
+
+  assert.doesNotThrow(() => {
+    assertDataDirCompatible(makePathProvider(equalDir), { version: '0.26.4-beta.1', kind: 'desktop' })
+  })
+
+  const newerDir = makeTempDir()
+  writeMeta(newerDir, {
+    formatVersion: 1,
+    minRuntimeVersion: '0.26.5',
+    dataCompatibilityVersion: 1,
+    reasons: ['segment-schema'],
+    updatedBy: { runtime: 'cli', module: 'chat-db-migration', version: '0.26.5' },
+    updatedAt: 1780830000,
+  })
+
+  assert.throws(
+    () => assertDataDirCompatible(makePathProvider(newerDir), { version: '0.26.4-beta.1', kind: 'desktop' }),
+    (error) =>
+      error instanceof DataDirCompatibilityError &&
+      error.code === 'DATA_DIR_REQUIRES_NEWER_RUNTIME' &&
+      error.currentVersion === '0.26.4-beta.1' &&
+      error.minRuntimeVersion === '0.26.5'
+  )
+})
+
 test('current runtime below minRuntimeVersion is blocked', () => {
   const userDataDir = makeTempDir()
   writeMeta(userDataDir, {
@@ -219,4 +270,24 @@ test('raising minRuntimeVersion writes atomically and never lowers existing requ
   assert.deepEqual(meta?.updatedBy, { runtime: 'cli', module: 'chat-db-migration', version: '0.25.1' })
   assert.equal(meta?.updatedAt, 1780830001)
   assert.equal(fs.existsSync(path.join(userDataDir, '.chatlab-meta.json')), true)
+})
+
+test('raising minRuntimeVersion records prerelease runtime by stable core version', () => {
+  const userDataDir = makeTempDir()
+
+  const meta = raiseDataDirMinRuntimeVersion(makePathProvider(userDataDir), {
+    minRuntimeVersion: '0.25.1',
+    dataCompatibilityVersion: 1,
+    reason: 'segment-schema',
+    runtime: { version: '0.26.4-beta.1', kind: 'desktop' },
+    module: 'chat-db-migration',
+    now: () => 1780830000,
+  })
+
+  assert.deepEqual(meta.updatedBy, { runtime: 'desktop', module: 'chat-db-migration', version: '0.26.4' })
+  assert.deepEqual(readDataDirCompatibilityMeta(userDataDir)?.updatedBy, {
+    runtime: 'desktop',
+    module: 'chat-db-migration',
+    version: '0.26.4',
+  })
 })

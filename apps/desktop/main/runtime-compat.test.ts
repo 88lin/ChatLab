@@ -50,6 +50,24 @@ test('assertDesktopDataDirCompatible accepts a gated data directory with the bun
   )
 })
 
+test('assertDesktopDataDirCompatible accepts prerelease desktop versions by stable core version', () => {
+  const userDataDir = makeTempDir()
+  fs.writeFileSync(
+    path.join(userDataDir, '.chatlab-meta.json'),
+    JSON.stringify({
+      formatVersion: 1,
+      minRuntimeVersion: '0.25.1',
+      dataCompatibilityVersion: 1,
+      reasons: ['segment-schema'],
+      updatedBy: { runtime: 'cli', module: 'chat-db-migration', version: '0.25.1' },
+      updatedAt: 1780830000,
+    }),
+    'utf-8'
+  )
+
+  assert.doesNotThrow(() => assertDesktopDataDirCompatible(makePathProvider(userDataDir), '0.26.4-beta.1'))
+})
+
 test('assertDesktopDataDirCompatible formats a startup error for older desktop runtimes', () => {
   const userDataDir = makeTempDir()
   fs.writeFileSync(
@@ -73,6 +91,32 @@ test('assertDesktopDataDirCompatible formats a startup error for older desktop r
       assert.match(error.message, /Current desktop version: 0\.25\.0/)
       assert.match(error.message, new RegExp(userDataDir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
       assert.match(error.message, /upgrade ChatLab desktop/)
+      return true
+    }
+  )
+})
+
+test('assertDesktopDataDirCompatible shows original prerelease version when blocked', () => {
+  const userDataDir = makeTempDir()
+  fs.writeFileSync(
+    path.join(userDataDir, '.chatlab-meta.json'),
+    JSON.stringify({
+      formatVersion: 1,
+      minRuntimeVersion: '0.26.5',
+      dataCompatibilityVersion: 1,
+      reasons: ['segment-schema'],
+      updatedBy: { runtime: 'cli', module: 'chat-db-migration', version: '0.26.5' },
+      updatedAt: 1780830000,
+    }),
+    'utf-8'
+  )
+
+  assert.throws(
+    () => assertDesktopDataDirCompatible(makePathProvider(userDataDir), '0.26.4-beta.1'),
+    (error) => {
+      assert.ok(error instanceof Error)
+      assert.match(error.message, /requires ChatLab 0\.26\.5 or newer/)
+      assert.match(error.message, /Current desktop version: 0\.26\.4-beta\.1/)
       return true
     }
   )

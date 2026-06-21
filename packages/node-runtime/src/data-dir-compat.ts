@@ -90,10 +90,11 @@ export function assertDataDirCompatible(
   const meta = readDataDirCompatibilityMeta(userDataDir)
   if (!meta) return
 
-  if (!isStableSemver(runtime.version)) {
+  const runtimeStableVersion = normalizeRuntimeStableVersion(runtime.version)
+  if (!runtimeStableVersion) {
     throw new DataDirCompatibilityError(
       'DATA_DIR_REQUIRES_NEWER_RUNTIME',
-      `ChatLab data directory compatibility check requires a stable runtime version; current version is ${runtime.version}.`,
+      `ChatLab data directory compatibility check requires a valid runtime semver; current version is ${runtime.version}.`,
       {
         userDataDir,
         metaPath: getMetaPath(userDataDir),
@@ -103,7 +104,7 @@ export function assertDataDirCompatible(
     )
   }
 
-  if (compareStableSemver(runtime.version, meta.minRuntimeVersion) < 0) {
+  if (compareStableSemver(runtimeStableVersion, meta.minRuntimeVersion) < 0) {
     const env = options.env ?? process.env
     if (env.CHATLAB_ALLOW_INCOMPATIBLE_DATA_DIR === '1') {
       const warn = options.warn ?? console.warn
@@ -138,7 +139,7 @@ export function raiseDataDirMinRuntimeVersion(
   const metaPath = getMetaPath(userDataDir)
 
   assertStableVersion(input.minRuntimeVersion, userDataDir, metaPath, 'Invalid minRuntimeVersion.')
-  assertStableVersion(input.runtime.version, userDataDir, metaPath, 'Invalid runtime version.')
+  const runtimeStableVersion = assertRuntimeComparableVersion(input.runtime.version, userDataDir, metaPath)
   if (!isRuntimeKind(input.runtime.kind)) {
     throw createInvalidMetaError(userDataDir, metaPath, 'Invalid runtime kind.')
   }
@@ -166,7 +167,7 @@ export function raiseDataDirMinRuntimeVersion(
     updatedBy: {
       runtime: input.runtime.kind,
       module: input.module,
-      version: input.runtime.version,
+      version: runtimeStableVersion,
     },
     updatedAt: now(),
   }
@@ -251,6 +252,22 @@ function assertStableVersion(version: string, userDataDir: string, metaPath: str
 
 function isStableSemver(version: unknown): version is string {
   return typeof version === 'string' && /^\d+\.\d+\.\d+$/.test(version)
+}
+
+function assertRuntimeComparableVersion(version: string, userDataDir: string, metaPath: string): string {
+  const normalized = normalizeRuntimeStableVersion(version)
+  if (!normalized) {
+    throw createInvalidMetaError(userDataDir, metaPath, 'Invalid runtime version.')
+  }
+  return normalized
+}
+
+// 当前运行时允许使用 beta/rc 等 prerelease；数据目录门禁比较和 meta 写入只使用稳定 core 版本。
+function normalizeRuntimeStableVersion(version: string): string | null {
+  const match = /^v?(\d+\.\d+\.\d+)(-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/.exec(version.trim())
+  if (!match) return null
+  if (match[1] === '0.0.0' && match[2]) return null
+  return match[1]
 }
 
 function compareStableSemver(left: string, right: string): number {
