@@ -5,22 +5,34 @@
  * AI pipeline 直接调用 SemanticIndexService，不经过这些 HTTP 路由。
  */
 
+import path from 'node:path'
 import type { FastifyInstance } from 'fastify'
 import type { HttpRouteContext } from '../../context'
 import type { SemanticIndexConfig } from '@openchatlab/node-runtime'
-import { defaultSemanticIndexConfig } from '@openchatlab/node-runtime'
+import {
+  SemanticIndexConfigStore,
+  SEMANTIC_INDEX_CONFIG_FILE,
+  isSemanticIndexConfigured,
+} from '@openchatlab/node-runtime'
 
 export function registerSemanticIndexRoutes(server: FastifyInstance, ctx: HttpRouteContext): void {
   const service = ctx.semanticIndexService
 
-  // When the service is unavailable (e.g. sqlite-vec failed to load), register read-only stubs
-  // so the settings UI can still open without 404 errors.
+  // When the vector service is unavailable (e.g. sqlite-vec failed to load), register config
+  // routes backed by the config-only store so the settings UI can still read/write configuration.
   if (!service) {
-    server.get('/_web/ai/semantic-index/config', async () => ({
-      config: defaultSemanticIndexConfig(),
-      apiKeySet: false,
-      configured: false,
-    }))
+    if (ctx.aiDataDir) {
+      const configStore = new SemanticIndexConfigStore(path.join(ctx.aiDataDir, SEMANTIC_INDEX_CONFIG_FILE))
+      server.get('/_web/ai/semantic-index/config', async () => ({
+        config: configStore.get(),
+        apiKeySet: false,
+        configured: isSemanticIndexConfigured(configStore.get()),
+      }))
+      server.put<{ Body: { config: SemanticIndexConfig } }>('/_web/ai/semantic-index/config', async (request) => {
+        const config = configStore.set(request.body.config)
+        return { config, apiKeySet: false, configured: isSemanticIndexConfigured(config) }
+      })
+    }
     server.get('/_web/ai/semantic-index/enabled', async () => ({ sessions: [] }))
     return
   }

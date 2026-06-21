@@ -46,6 +46,7 @@ export { estimateTokens } from './tokens'
 export {
   SemanticIndexConfigStore,
   defaultSemanticIndexConfig,
+  isSemanticIndexConfigured,
   resolveModelId,
   clampSearchMaxResults,
   SEMANTIC_INDEX_CONFIG_VERSION,
