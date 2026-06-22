@@ -26,7 +26,7 @@ test('worker runtime lazily creates service and forwards RPC calls', async () =>
   const factory: SemanticIndexWorkerServiceFactory = () => {
     const service = new FakeSemanticIndexRuntime()
     services.push(service)
-    return service as SemanticIndexRuntime
+    return service as unknown as SemanticIndexRuntime
   }
   const runtime = createSemanticIndexWorkerRuntime({ serviceFactory: factory })
 
