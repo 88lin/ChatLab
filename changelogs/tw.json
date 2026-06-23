@@ -1,5 +1,24 @@
 [
   {
+    "version": "0.27.2",
+    "date": "2026-06-24",
+    "summary": "修正 AI auth profile 生命週期管理的多項問題，提升分析服務穩定性，補齊本機嵌入執行環境相依套件。",
+    "changes": [
+      {
+        "type": "feat",
+        "items": ["【CLI Web】透過共享 AnalyticsService 統一回報日活用戶資料"]
+      },
+      {
+        "type": "fix",
+        "items": ["刪除 AI 服務設定時同步清除對應的 auth profile"]
+      },
+      {
+        "type": "refactor",
+        "items": ["移除已過期的分析設定遷移邏輯"]
+      }
+    ]
+  },
+  {
     "version": "0.27.1",
     "date": "2026-06-23",
     "summary": "支援 API 批次向量化加速語意索引建立，改為惰性載入本機模型；修正斷點續跑、同步游標回退與 AI 對話匯出等問題。",

@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.27.2 (2026-06-24)
+
+> Fix multiple auth profile lifecycle issues, improve analytics service reliability, and bundle missing local embedding runtime dependencies.
+
+### ✨ Features
+
+- [CLI Web] Unify daily active user reporting through a shared AnalyticsService
+
+### 🐛 Bug Fixes
+
+- Clean up the corresponding auth profile when removing an AI service config
+
+### ♻️ Refactoring
+
+- Remove outdated analytics settings migration
+
 ## v0.27.1 (2026-06-23)
 
 > Add batched API embedding for faster index builds and lazy-loaded local models; fix semantic index resume-after-crash, sync cursor regression, and AI conversation export.
