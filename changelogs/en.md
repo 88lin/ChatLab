@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.34.1 (2026-07-27)
+
+> Fix QQ chunked imports and data compatibility issues.
+
+### ✨ Features
+
+- Update sample chat records to use a rolling timeline, so imports always cover the most recent full year
+
+### 🐛 Bug Fixes
+
+- Fix recognition of current QQ Chat Exporter chunked JSONL exports and prevent large groups from being mistaken for empty imports
+- Improve official sample imports with timezone handling, rollback on failure, and download timeouts to prevent partial imports
+- Strengthen ChatLab system-message handling and early database migration compatibility to prevent parsing and upgrade failures
+- Stop writing AI chat message text to logs to better protect local privacy
+
 ## v0.34.0 (2026-07-23)
 
 > Add private chat journey and Footprints trend insights, reorganize session insight navigation, and fix the friends-only relationship graph.
