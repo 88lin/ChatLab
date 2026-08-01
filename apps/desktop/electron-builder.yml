@@ -25,10 +25,10 @@ files:
   - '!node_modules/@node-rs/jieba/idf.txt'
   - '!node_modules/@node-rs/jieba/dict.js'
   - '!node_modules/@node-rs/jieba/dict.d.ts'
-  # onnxruntime-node 自带 darwin/linux/win32 全平台全架构原生二进制（合计 ~210M）。
+  # onnxruntime-node 自带多个受支持平台/架构的原生二进制（合计约 210M，1.24+ 不再含 darwin/x64）。
   # 只保留当前构建目标 ${platform}/${arch} 一份，避免 mac 包含 Linux/Windows 二进制（反之亦然）。
   # 先排除整组 bin/napi-v6，再按目标平台/架构重新包含；electron-builder 后写规则覆盖先写规则。
-  # ${platform} -> darwin/linux/win32，${arch} -> x64/arm64，正好匹配该包目录结构。
+  # ${platform} -> darwin/linux/win32，${arch} -> x64/arm64，与该包目录结构一致。
   - '!node_modules/onnxruntime-node/bin/napi-v6/**'
   - 'node_modules/onnxruntime-node/bin/napi-v6/${platform}/${arch}/**'
   # parser-native 是 workspace 内的 Rust 包：只需要 index.js/index.d.ts/package.json 和 *.node，
@@ -84,7 +84,7 @@ mac:
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   target:
-    # 架构由 CI 通过 --x64/--arm64 指定，避免在单个 job 里同时打双架构
+    # 架构由 CI 通过 --arm64 指定；macOS Desktop 不再发布 Intel 版本
     - target: dmg
     - target: zip
   artifactName: ChatLab-${version}-${arch}.${ext}

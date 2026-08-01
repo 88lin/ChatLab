@@ -10,6 +10,8 @@ ChatLab 提供 Desktop、CLI 和 Docker 三種安裝方式。
 
 前往 [ChatLab 官網](https://chatlab.fun) 或 [GitHub Releases](https://github.com/ChatLab/ChatLab/releases) 下載對應作業系統的安裝程式，執行安裝即可。
 
+macOS Desktop 目前僅支援搭載 Apple 晶片（M 系列）的 Mac。Intel Mac 使用者可以改用下方的 CLI Web。
+
 ## CLI
 
 CLI 需要 Node.js 20 或更新版本：

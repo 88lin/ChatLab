@@ -62,18 +62,11 @@ jobs:
 
           echo "Release version: $VERSION_TAG"
 
-  # macOS 构建需要分架构
-  # better-sqlite3 等原生模块会通过 prebuild 下载对应架构的预编译二进制
+  # macOS Desktop 仅发布 Apple Silicon 版本。onnxruntime-node 1.24+ 已停止提供
+  # macOS x64 预编译二进制，继续生成 Intel 包会得到无法加载本地 embedding 的损坏产物。
   build-mac:
     needs: [prepare_release]
-    strategy:
-      matrix:
-        include:
-          - os: macos-14 # 使用 ARM runner 交叉编译 x64
-            arch: x64
-          - os: macos-14 # Apple Silicon (arm64) 原生构建
-            arch: arm64
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-15
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -83,6 +76,15 @@ jobs:
         with:
           node-version: '24'
           package-manager-cache: false
+
+      - name: Verify runner architecture
+        shell: bash
+        run: |
+          ACTUAL_ARCH="$(node -p 'process.arch')"
+          if [ "$ACTUAL_ARCH" != "arm64" ]; then
+            echo "::error::Expected an arm64 runner, but Node.js is running as $ACTUAL_ARCH"
+            exit 1
+          fi
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -96,41 +98,33 @@ jobs:
         uses: actions/cache@v5
         with:
           path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-${{ matrix.arch }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-arm64-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.arch }}-pnpm-store-
+            ${{ runner.os }}-arm64-pnpm-store-
 
       - name: Install dependencies
         run: |
           echo "node-linker=hoisted" >> .npmrc
           pnpm install --frozen-lockfile
 
-      # Rust native parser：目标架构与 electron-builder --x64/--arm64 保持一致
+      # Rust native parser：目标架构与 electron-builder --arm64 保持一致
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.arch == 'x64' && 'x86_64-apple-darwin' || 'aarch64-apple-darwin' }}
+          targets: aarch64-apple-darwin
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: packages/parser-native
-          key: ${{ matrix.arch }}
+          key: arm64
 
-      # --target 必须直接传给 napi（不能用 -- 透传给 cargo），
-      # 否则 napi 感知不到交叉编译，会按宿主架构（arm64）命名并构建产物
-      - name: Build native parser (${{ matrix.arch }})
-        shell: bash
-        run: |
-          if [ "${{ matrix.arch }}" == "x64" ]; then
-            pnpm --filter @openchatlab/parser-native build --target x86_64-apple-darwin
-          else
-            pnpm --filter @openchatlab/parser-native build
-          fi
+      - name: Build native parser (arm64)
+        run: pnpm --filter @openchatlab/parser-native build
 
       - name: Verify native parser artifact
         shell: bash
-        run: ls -la packages/parser-native/chatlab-parser-native.darwin-${{ matrix.arch }}.node
+        run: ls -la packages/parser-native/chatlab-parser-native.darwin-arm64.node
 
       - name: Inject version into app package.json
         shell: bash
@@ -153,9 +147,9 @@ jobs:
           path: |
             ~/Library/Caches/electron
             ~/Library/Caches/electron-builder
-          key: ${{ runner.os }}-${{ matrix.arch }}-electron-builder-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-arm64-electron-builder-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.arch }}-electron-builder-
+            ${{ runner.os }}-arm64-electron-builder-
 
       # macOS 签名和公证需要的 API Key 文件
       - name: Create Apple API Key File
@@ -163,7 +157,7 @@ jobs:
           mkdir -p ~/private_keys
           echo "${{ secrets.APPLE_API_KEY }}" > ~/private_keys/AuthKey_${{ secrets.APPLE_API_KEY_ID }}.p8
 
-      - name: Build Electron app for macOS (${{ matrix.arch }})
+      - name: Build Electron app for macOS (arm64)
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           # 代码签名
@@ -177,16 +171,16 @@ jobs:
           UMAMI_ENDPOINT: ${{ secrets.UMAMI_ENDPOINT }}
           UMAMI_WEBSITE_ID: ${{ secrets.UMAMI_WEBSITE_ID }}
         working-directory: apps/desktop
-        run: pnpm run build && pnpm exec electron-builder --mac --${{ matrix.arch }} --config electron-builder.yml -p never
+        run: pnpm run build && pnpm exec electron-builder --mac --arm64 --config electron-builder.yml -p never
 
-      - name: Verify native parser in packaged app (${{ matrix.arch }})
+      - name: Verify native parser in packaged app (arm64)
         shell: bash
-        run: node scripts/check-desktop-native.mjs darwin-${{ matrix.arch }}
+        run: node scripts/check-desktop-native.mjs darwin-arm64
 
-      - name: Upload macOS artifacts (${{ matrix.arch }})
+      - name: Upload macOS artifacts (arm64)
         uses: actions/upload-artifact@v6
         with:
-          name: ChatLab-mac-${{ matrix.arch }}
+          name: ChatLab-mac-arm64
           path: |
             apps/desktop/dist/*.dmg
             apps/desktop/dist/*.zip
@@ -379,12 +373,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Download macOS artifacts (x64)
-        uses: actions/download-artifact@v8
-        with:
-          name: ChatLab-mac-x64
-          path: release-dist
-
       - name: Download macOS artifacts (arm64)
         uses: actions/download-artifact@v8
         with:
@@ -436,7 +424,6 @@ jobs:
             echo "| Platform | File |"
             echo "|-----------------|-------------|"
             echo "| Mac (Apple Silicon) | [ChatLab-${VERSION_NUMBER}-arm64.dmg](https://github.com/ChatLab/ChatLab/releases/download/v${VERSION_NUMBER}/ChatLab-${VERSION_NUMBER}-arm64.dmg) |"
-            echo "| Mac (Intel) | [ChatLab-${VERSION_NUMBER}-x64.dmg](https://github.com/ChatLab/ChatLab/releases/download/v${VERSION_NUMBER}/ChatLab-${VERSION_NUMBER}-x64.dmg) |"
             echo "| Windows | [ChatLab-${VERSION_NUMBER}-setup.exe](https://github.com/ChatLab/ChatLab/releases/download/v${VERSION_NUMBER}/ChatLab-${VERSION_NUMBER}-setup.exe) |"
           } > release_notes.md
 
