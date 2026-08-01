@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.34.2 (2026-08-01)
+
+> Improve large and batch imports, add on-demand local semantic indexing for CLI Web, and harden data migrations.
+
+### ✨ Features
+
+- Use the Rust native parser for QQ Shuakami and QQ Chat Exporter imports to improve reliability with large exports
+- Add safe concurrent scheduling for multi-file imports, preventing concurrent writes to the same session while reporting per-file progress and failures
+- Add privacy-preserving anonymous product analytics that only report allowlisted environment and feature usage events
+- 【CLI Web】Install the local semantic-index runtime on first use, while keeping it preinstalled in the Docker image
+
+### 🐛 Bug Fixes
+
+- Ignore macOS `._*.db` AppleDouble sidecar files during automatic imports so unrelated metadata no longer blocks chat imports
+- Harden configuration migrations and old data directory cleanup to prevent concurrent migrations from overwriting authentication profiles or deleting directories still in use
+- Keep low-memory preprocessing enabled when large QQ exports fall back from native parsing, avoiding excessive memory use for compatible formats
+- Release workers after local model preloading and preserve complete background failure details
+
 ## v0.34.1 (2026-07-27)
 
 > Fix QQ chunked imports and data compatibility issues.
