@@ -87,13 +87,14 @@ function startOfDay(date: Date): Date {
         <span
           v-for="day in month.days"
           :key="day.key"
-          class="aspect-square min-h-[5px] rounded-[2px] bg-gray-100 dark:bg-zinc-800"
+          class="aspect-square min-h-[5px] rounded-[2px]"
           :class="{
             'opacity-30': !day.inRange,
-            'bg-pink-200 dark:bg-pink-950': day.level === 1,
-            'bg-pink-300 dark:bg-pink-800': day.level === 2,
-            'bg-pink-500 dark:bg-pink-600': day.level === 3,
-            'bg-pink-700 dark:bg-pink-400': day.level === 4,
+            'bg-gray-100 dark:bg-zinc-800': day.level === 0,
+            'bg-pink-100 dark:bg-pink-500/15': day.level === 1,
+            'bg-pink-200 dark:bg-pink-500/30': day.level === 2,
+            'bg-pink-400 dark:bg-pink-500/50': day.level === 3,
+            'bg-pink-600 dark:bg-pink-500/75': day.level === 4,
           }"
           :title="`${day.key}: ${day.count} ${t('insight.messages')}`"
         />
