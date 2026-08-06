@@ -1,5 +1,27 @@
 [
   {
+    "version": "0.34.3",
+    "date": "2026-08-06",
+    "summary": "Fix data issues in automatic incremental imports and merge deduplication, while improving large-database imports, search, and Insights.",
+    "changes": [
+      {
+        "type": "fix",
+        "items": [
+          "Fix QQ automatic import matching and member mapping when UID/UIN values change, owner metadata is missing, or sessions have been merged, preventing duplicate sessions and incorrect member identities",
+          "Prevent merge imports from incorrectly removing messages when platform message IDs conflict or private-chat identity is incomplete, while preserving valid owner and session identity metadata",
+          "Fix request handling, rapid switching, and multi-color mode in dynamic keyword rankings, preventing stale results and crashes caused by unknown types",
+          "Unify loading transitions across Insights, and restore annual activity calendar colors and relationship view controls"
+        ]
+      },
+      {
+        "type": "perf",
+        "items": [
+          "Optimize incremental import deduplication by querying only existing message candidates as needed, reducing memory usage with large databases"
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.34.2",
     "date": "2026-08-01",
     "summary": "Improve large and batch imports, add on-demand local semantic indexing for CLI Web, and harden data migrations.",
