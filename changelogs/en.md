@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.35.0 (2026-08-09)
+
+> Add a 3D group relationship galaxy and automatic AI context compression, with faster startup, smoother Insights loading, and improved Windows background behavior.
+
+### ✨ Features
+
+- Upgrade group relationships to a 3D galaxy view, with Interaction Ranking and Proximity Ranking organized as separate second-level tabs
+- 【Desktop】Allow Windows to close ChatLab to the system tray, with a setting to keep it running in the background or quit immediately
+- Automatically compress AI chat history based on each model's context capacity, keeping long conversations available across Desktop, CLI Web, and Web WASM
+- Unify loading feedback when switching between session Insights, relationships, and Footprint pages to reduce blank states and flicker in asynchronous views
+- Use the startup animation as a preload window, showing the full sequence on first launch and opening the app faster afterward
+- 【Web WASM】Unify the AI model setup, conversation list, composer, and settings experience
+
+### 🐛 Bug Fixes
+
+- Improve AI context compression with safer model capacity detection and bounded fallbacks, preventing oversized history from failing after switching to a smaller-context model
+- 【Desktop】Release database handles after exporting or deleting sessions so Windows no longer requires an app restart before files can be removed
+- 【Desktop】Align Windows title bar hover areas with system controls and make close-to-background behavior consistent
+
 ## v0.34.3 (2026-08-06)
 
 > Fix data issues in automatic incremental imports and merge deduplication, while improving large-database imports, search, and Insights.
