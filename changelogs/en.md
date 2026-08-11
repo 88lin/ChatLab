@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.36.0 (2026-08-11)
+
+> Add Time Investment to Footprint, improve About Me, and introduce a Memory page for summarizing chats by topic.<br/>Future releases will continue expanding Memory features.
+
+### ✨ Features
+
+- Add AI-generated topic summaries to Chat Memory, with batch or per-day generation and linked message highlighting
+- Add a linked chat record view to Chat Memory, unifying the summary timeline, filters, and navigation to source messages
+- Add cross-chat Time Investment insights to Footprint, covering total time, monthly trends, an activity calendar, activity rhythm, and relationship distribution
+- Limit global Insights to sessions where the user has been identified, preventing unidentified sessions from skewing personal statistics
+- Allow automatic changelog popups to be disabled while keeping manual access available
+- Unify buttons, icons, status badges, progress indicators, and tooltips for a consistent experience across Desktop and Web WASM
+
 ## v0.35.0 (2026-08-09)
 
 > Add a 3D group relationship galaxy and automatic AI context compression, with faster startup, smoother Insights loading, and improved Windows background behavior.
