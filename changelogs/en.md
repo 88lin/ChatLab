@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.36.1 (2026-08-18)
+
+> Improve AI tool progress and parallel execution, refine the relationship galaxy, and strengthen update recovery on Desktop.
+
+### ✨ Features
+
+- Run independent read-only AI tools in parallel so complex analyses can finish faster
+- Show live progress for capability checks, semantic search, keyword search, and evidence assembly during chat evidence retrieval
+- Improve depth, focused connections, and selection interactions in the relationship galaxy
+
+### 🐛 Bug Fixes
+
+- Fix tool status and progress being cleared too early during parallel tool calls
+- Limit filtered connections in the relationship galaxy to prevent an overcrowded view
+- 【Desktop】Guide users through an automatic update when a data directory requires a newer version instead of interrupting startup
+- 【Desktop】Wait until the app window is active before showing update prompts
+
+### build
+
+- 【CLI】Raise the minimum Node.js version to 22.19 and update format validators accordingly
+- 【Desktop】Support packaging with pnpm 11
+
 ## v0.36.0 (2026-08-11)
 
 > Add Time Investment to Footprint, improve About Me, and introduce a Memory page for summarizing chats by topic.<br/>Future releases will continue expanding Memory features.
