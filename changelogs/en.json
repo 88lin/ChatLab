@@ -1,5 +1,31 @@
 [
   {
+    "version": "0.36.2",
+    "date": "2026-08-20",
+    "summary": "Improve AI chat process display and long-conversation performance, and show member avatars on group rankings.",
+    "changes": [
+      {
+        "type": "feat",
+        "items": [
+          "Improve AI reply layout, user bubbles, and action buttons, and show message time on hover",
+          "Group thinking, planning, and tool execution into an expandable process section that shows duration and step count when complete",
+          "Show member avatars on group leaderboards and related charts",
+          "Keep ranking cards aligned while loading to prevent layout jumps"
+        ]
+      },
+      {
+        "type": "fix",
+        "items": ["Turn folder import into a dedicated button so it no longer competes with file selection"]
+      },
+      {
+        "type": "perf",
+        "items": [
+          "Speed up long conversations with batched streaming updates and incremental loading of earlier messages"
+        ]
+      }
+    ]
+  },
+  {
     "version": "0.36.1",
     "date": "2026-08-18",
     "summary": "Improve AI tool progress and parallel execution, refine the relationship galaxy, and strengthen update recovery on Desktop.",
