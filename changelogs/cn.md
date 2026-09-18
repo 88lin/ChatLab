@@ -1,5 +1,24 @@
 # 更新日志
 
+## v0.37.2 (2026-09-18)
+
+> 修复 AI 回复截断与停止后的续聊问题，完善表情识别、技能入口和下载安全校验。
+
+### ✨ 新功能
+
+- 词频与语言偏好分析支持识别抖音表情代码，避免表情名称混入高频词 (by [@babybitter](https://github.com/babybitter))
+
+### 🐛 修复
+
+- 修复 AI 回复截断后部分入口丢失已生成内容或用量的问题，支持保存后继续对话
+- 修复手动停止 AI 后已生成内容未保存、继续提问可能丢失上下文的问题 (by [@Sanssssssssssssssss](https://github.com/Sanssssssssssssssss))
+- 修复停止 AI 请求后上下文压缩仍继续执行的问题，避免额外模型调用和摘要写入 (by [@Sanssssssssssssssss](https://github.com/Sanssssssssssssssss))
+- 修复下载接口的文件名校验，防止文件被写入下载目录之外 (by [@ttsdj](https://github.com/ttsdj))
+
+### ♻️ 重构
+
+- 统一外部 Agent 的导入、转换和分析技能入口，按用户语言回复，并兼容已发布版本的旧导入安装命令
+
 ## v0.37.1 (2026-09-04)
 
 > 新增贡献者署名，优化 Docker 启动，并修复 AI 工具循环、文本统计和关系图资源占用。

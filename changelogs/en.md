@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.37.2 (2026-09-18)
+
+> Fix issues resuming AI conversations after truncated or stopped replies, and improve emoji recognition, skill entry points, and download safety.
+
+### ✨ Features
+
+- Recognize Douyin emoji codes in word frequency and language preference analysis so emoji names no longer appear as frequent words (by [@babybitter](https://github.com/babybitter))
+
+### 🐛 Bug Fixes
+
+- Fix cases where truncated AI replies lost generated content or token usage, allowing saved conversations to be continued
+- Save content received before an AI reply is stopped manually, preserving context for follow-up questions (by [@Sanssssssssssssssss](https://github.com/Sanssssssssssssssss))
+- Cancel context compression when an AI request is stopped to prevent further model calls and summary writes (by [@Sanssssssssssssssss](https://github.com/Sanssssssssssssssss))
+- Validate filenames in the download endpoint to prevent writes outside the downloads directory (by [@ttsdj](https://github.com/ttsdj))
+
+### ♻️ Refactoring
+
+- Unify external Agent skills for import, conversion, and analysis, follow the user's language, and retain compatibility with import skill installation commands from released versions
+
 ## v0.37.1 (2026-09-04)
 
 > Add contributor attribution, improve Docker startup, and fix AI tool loops, text statistics, and relationship graph resource usage.
