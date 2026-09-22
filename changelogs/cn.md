@@ -1,5 +1,22 @@
 # 更新日志
 
+## v0.37.3 (2026-09-22)
+
+> 修复 AI 时间筛选、Qwen 模型兼容与续聊问题，完善多语言支持和消息上下文查询。
+
+### ✨ 新功能
+
+- 完善 AI 工具说明的中英文适配，统一桌面端、CLI Web 与 MCP 的语言处理 (by [@Zycheng114514](https://github.com/Zycheng114514))
+
+### 🐛 修复
+
+- 修复 AI 词频与回复速度分析忽略所选时间范围的问题，明确提问时间、页面筛选与默认范围的优先级 (by [@liuyy2](https://github.com/liuyy2))
+- 修复部分 Qwen 模型在 AI 对话、话题总结时因消息角色不兼容而报错的问题
+- 修复补录历史消息后上下文可能错位的问题，并优化消息上下文检索性能 (by [@Sanssssssssssssssss](https://github.com/Sanssssssssssssssss))
+- 补齐语言偏好卡片中缺失的日语标签 (by [@Zycheng114514](https://github.com/Zycheng114514))
+- 【CLI】修复 AI 续聊遗漏已完成工具调用结果的问题，保留工具结果与错误状态供后续对话使用 (by [@Sanssssssssssssssss](https://github.com/Sanssssssssssssssss))
+- 【CLI】修复 Docker 镜像发布可能因 npm 新版本尚未同步而失败的问题
+
 ## v0.37.2 (2026-09-18)
 
 > 修复 AI 回复截断与停止后的续聊问题，完善表情识别、技能入口和下载安全校验。

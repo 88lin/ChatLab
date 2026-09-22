@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.37.3 (2026-09-22)
+
+> Fix AI time filters, Qwen compatibility, and conversation continuation, and improve multilingual support and message context retrieval.
+
+### ✨ Features
+
+- Improve Chinese and English AI tool descriptions and unify language handling across Desktop, CLI Web, and MCP (by [@Zycheng114514](https://github.com/Zycheng114514))
+
+### 🐛 Bug Fixes
+
+- Fix AI word frequency and reply speed analysis ignoring the selected time range, and clarify the priority of explicitly requested dates, page filters, and defaults (by [@liuyy2](https://github.com/liuyy2))
+- Fix message role compatibility errors with some Qwen models in AI chats and topic summaries
+- Fix incorrect message context after backfilling older messages and improve context retrieval performance (by [@Sanssssssssssssssss](https://github.com/Sanssssssssssssssss))
+- Add missing Japanese labels to the language preference card (by [@Zycheng114514](https://github.com/Zycheng114514))
+- [CLI] Preserve completed tool results and error states when continuing AI conversations so follow-up questions retain the full tool history (by [@Sanssssssssssssssss](https://github.com/Sanssssssssssssssss))
+- [CLI] Fix Docker image publishing failures caused by delays in the new npm version becoming available
+
 ## v0.37.2 (2026-09-18)
 
 > Fix issues resuming AI conversations after truncated or stopped replies, and improve emoji recognition, skill entry points, and download safety.

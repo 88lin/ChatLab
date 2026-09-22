@@ -1,5 +1,22 @@
 # 更新日誌
 
+## v0.37.3 (2026-09-22)
+
+> 修正 AI 時間篩選、Qwen 模型相容性與接續對話的問題，改善多語言支援及訊息上下文查詢。
+
+### ✨ 新功能
+
+- 完善 AI 工具的中英文說明，統一桌面版、CLI Web 與 MCP 的語言處理 (by [@Zycheng114514](https://github.com/Zycheng114514))
+
+### 🐛 修復
+
+- 修正 AI 詞頻與回覆速度分析忽略所選時間範圍的問題，釐清提問指定時間、頁面篩選與預設範圍的優先順序 (by [@liuyy2](https://github.com/liuyy2))
+- 修正部分 Qwen 模型在 AI 對話與話題摘要中，因訊息角色不相容而發生錯誤的問題
+- 修正補匯入較早訊息後上下文可能錯置的問題，並提升訊息上下文的查詢效能 (by [@Sanssssssssssssssss](https://github.com/Sanssssssssssssssss))
+- 補齊語言偏好卡片缺少的日文標籤 (by [@Zycheng114514](https://github.com/Zycheng114514))
+- 【CLI】修正接續 AI 對話時遺漏已完成工具呼叫結果的問題，保留工具結果與錯誤狀態供後續對話使用 (by [@Sanssssssssssssssss](https://github.com/Sanssssssssssssssss))
+- 【CLI】修正 npm 新版本尚未同步時，Docker 映像檔可能發布失敗的問題
+
 ## v0.37.2 (2026-09-18)
 
 > 修正 AI 回覆遭截斷或停止後無法順利接續對話的問題，改善表情符號辨識、技能入口與下載安全檢查。
