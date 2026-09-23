@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.37.4 (2026-09-23)
+
+> Improve context budgeting for AI tool results, fix Qwen topic summaries, and show clearer session-loading errors.
+
+### 🐛 Bug Fixes
+
+- Fix accumulated results from multi-round or parallel AI tool calls exceeding the model's context limit by trimming results per request while preserving the full conversation history (by [@Sanssssssssssssssss](https://github.com/Sanssssssssssssssss))
+- Fix topic summaries failing on some Qwen models when thinking is enabled by default
+- Show a clear message when topic summaries hit the model's output limit, avoiding unnecessary usage from ineffective retries
+- Show full error details when the session list fails to load and retain complete stack traces in application logs to help diagnose permission and other issues after upgrading
+- Complete the English time parameter descriptions for AI word frequency and reply speed analysis tools
+- [CLI] Build Docker images with the same package published to npm to avoid image publishing failures caused by registry propagation delays
+
 ## v0.37.3 (2026-09-22)
 
 > Fix AI time filters, Qwen compatibility, and conversation continuation, and improve multilingual support and message context retrieval.
